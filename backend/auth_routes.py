@@ -1,9 +1,31 @@
 import os
+import logging
+import secrets
 
-from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from datetime import datetime, timedelta
+from urllib.parse import urlencode
+
+from dotenv import load_dotenv
+
+# =====================================================
+# LOAD ENVIRONMENT VARIABLES
+# =====================================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env", override=True)
+
+
+# =====================================================
+# IMPORTS
+# =====================================================
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from starlette.requests import Request
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -14,12 +36,21 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 
+from authlib.integrations.starlette_client import OAuth
+
 from backend.database import SessionLocal
 
 
-# ==================================================
+# =====================================================
+# LOGGER
+# =====================================================
+
+logger = logging.getLogger(__name__)
+
+
+# =====================================================
 # ROUTER
-# ==================================================
+# =====================================================
 
 router = APIRouter(
     prefix="/auth",
@@ -27,35 +58,112 @@ router = APIRouter(
 )
 
 
-# ==================================================
+# =====================================================
 # JWT CONFIGURATION
-# ==================================================
+# =====================================================
 
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY",
-    "dev-only-change-this-secret-before-deployment"
-)
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY is missing from root .env"
+    )
 
 ALGORITHM = "HS256"
 
-ACCESS_TOKEN_EXPIRE_HOURS = 24
-
-security = HTTPBearer(auto_error=False)
-
-
-# ==================================================
-# PASSWORD CONFIGURATION
-# ==================================================
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
 
+security = HTTPBearer()
 
-# ==================================================
-# DATABASE SESSION
-# ==================================================
+
+# =====================================================
+# GOOGLE OAUTH CONFIGURATION
+# =====================================================
+
+GOOGLE_CLIENT_ID = os.getenv(
+    "GOOGLE_CLIENT_ID", ""
+).strip()
+
+GOOGLE_CLIENT_SECRET = os.getenv(
+    "GOOGLE_CLIENT_SECRET", ""
+).strip()
+
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI",
+    "http://localhost:8000/auth/google/callback"
+).strip()
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173"
+).strip()
+
+
+# =====================================================
+# OAUTH CLIENT
+# =====================================================
+
+oauth = OAuth()
+
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+
+    oauth.register(
+        name="google",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url=(
+            "https://accounts.google.com/.well-known/openid-configuration"
+        ),
+        client_kwargs={
+            "scope": "openid email profile"
+        }
+    )
+
+
+# =====================================================
+# GOOGLE OAUTH CONFIGURATION LOGS
+# =====================================================
+
+print("\n========== GOOGLE OAUTH CONFIG ==========")
+
+print(
+    "Google Client ID Loaded:",
+    bool(GOOGLE_CLIENT_ID)
+)
+
+print(
+    "Google Client ID Format:",
+    GOOGLE_CLIENT_ID.endswith(
+        ".apps.googleusercontent.com"
+    )
+)
+
+print(
+    "Google Client Secret Loaded:",
+    bool(GOOGLE_CLIENT_SECRET)
+)
+
+print(
+    "Google Redirect URI:",
+    GOOGLE_REDIRECT_URI
+)
+
+print(
+    "Frontend URL:",
+    FRONTEND_URL
+)
+
+print("=======================================\n")
+
+
+# =====================================================
+# DATABASE DEPENDENCY
+# =====================================================
 
 def get_db():
 
@@ -68,15 +176,15 @@ def get_db():
         db.close()
 
 
-# ==================================================
+# =====================================================
 # REQUEST MODELS
-# ==================================================
+# =====================================================
 
 class RegisterRequest(BaseModel):
 
     username: str = Field(
-        min_length=2,
-        max_length=100
+        min_length=3,
+        max_length=50
     )
 
     email: EmailStr
@@ -89,20 +197,14 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
 
-    username_or_email: str = Field(
-        min_length=1,
-        max_length=100
-    )
+    username_or_email: str
 
-    password: str = Field(
-        min_length=1,
-        max_length=72
-    )
+    password: str
 
 
-# ==================================================
+# =====================================================
 # PASSWORD FUNCTIONS
-# ==================================================
+# =====================================================
 
 def hash_password(password: str):
 
@@ -110,47 +212,38 @@ def hash_password(password: str):
 
         raise HTTPException(
             status_code=400,
-            detail="Password is too long"
+            detail="Password cannot exceed 72 bytes"
         )
 
     return pwd_context.hash(password)
 
 
-def verify_password(password: str, hashed_password: str):
+def verify_password(
+    password: str,
+    hashed_password: str
+):
 
-    if len(password.encode("utf-8")) > 72:
-
-        return False
-
-    try:
-
-        return pwd_context.verify(
-            password,
-            hashed_password
-        )
-
-    except Exception:
-
-        return False
+    return pwd_context.verify(
+        password,
+        hashed_password
+    )
 
 
-# ==================================================
-# JWT TOKEN GENERATION
-# ==================================================
+# =====================================================
+# JWT FUNCTIONS
+# =====================================================
 
 def create_access_token(data: dict):
 
     payload = data.copy()
 
-    now = datetime.now(timezone.utc)
-
-    expire = now + timedelta(
-        hours=ACCESS_TOKEN_EXPIRE_HOURS
+    expire = datetime.utcnow() + timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     payload.update({
         "exp": expire,
-        "iat": now
+        "iat": datetime.utcnow()
     })
 
     return jwt.encode(
@@ -160,32 +253,7 @@ def create_access_token(data: dict):
     )
 
 
-# ==================================================
-# VERIFY JWT TOKEN
-# ==================================================
-
-def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
-
-    if credentials is None:
-
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            }
-        )
-
-    if credentials.scheme.lower() != "bearer":
-
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication scheme"
-        )
-
-    token = credentials.credentials
+def verify_token(token: str):
 
     try:
 
@@ -195,13 +263,11 @@ def verify_token(
             algorithms=[ALGORITHM]
         )
 
-        user_id = payload.get("sub")
-
-        if not user_id:
+        if not payload.get("sub"):
 
             raise HTTPException(
                 status_code=401,
-                detail="Invalid token payload"
+                detail="Invalid authentication token"
             )
 
         return payload
@@ -210,58 +276,59 @@ def verify_token(
 
         raise HTTPException(
             status_code=401,
-            detail="Invalid or expired token",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            }
+            detail="Invalid or expired authentication token"
         )
 
 
-# ==================================================
-# REGISTER API
-# ==================================================
+# =====================================================
+# CURRENT USER DEPENDENCY
+# =====================================================
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+
+    payload = verify_token(
+        credentials.credentials
+    )
+
+    user_id = payload.get("sub")
+
+    user = db.execute(
+        text("""
+            SELECT id, username, email
+            FROM users
+            WHERE id = :user_id
+        """),
+        {"user_id": user_id}
+    ).mappings().first()
+
+    if not user:
+
+        raise HTTPException(
+            status_code=401,
+            detail="User not found"
+        )
+
+    return dict(user)
+
+
+# =====================================================
+# REGISTER
+# =====================================================
 
 @router.post("/register")
-def register_user(
+def register(
     request: RegisterRequest,
     db: Session = Depends(get_db)
 ):
 
     username = request.username.strip()
 
-    email = str(request.email).lower().strip()
+    email = request.email.lower().strip()
 
-    # Validate username
-    if not username:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Username cannot be empty"
-        )
-
-    # Check username or email already exists
-    existing_user = db.execute(
-        text("""
-            SELECT id
-            FROM users
-            WHERE LOWER(username) = :username
-               OR LOWER(email) = :email
-            LIMIT 1
-        """),
-        {
-            "username": username.lower(),
-            "email": email
-        }
-    ).fetchone()
-
-    if existing_user:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Username or email already registered"
-        )
-
-    hashed_password = hash_password(
+    password_hash = hash_password(
         request.password
     )
 
@@ -270,29 +337,20 @@ def register_user(
         db.execute(
             text("""
                 INSERT INTO users
-                (
-                    username,
-                    email,
-                    password_hash
-                )
+                (username, email, password_hash)
                 VALUES
-                (
-                    :username,
-                    :email,
-                    :password_hash
-                )
+                (:username, :email, :password_hash)
             """),
             {
                 "username": username,
                 "email": email,
-                "password_hash": hashed_password
+                "password_hash": password_hash
             }
         )
 
         db.commit()
 
         return {
-            "success": True,
             "message": "Registration successful"
         }
 
@@ -301,8 +359,8 @@ def register_user(
         db.rollback()
 
         raise HTTPException(
-            status_code=400,
-            detail="Username or email already registered"
+            status_code=409,
+            detail="Username or email already exists"
         )
 
     except SQLAlchemyError:
@@ -311,44 +369,33 @@ def register_user(
 
         raise HTTPException(
             status_code=500,
-            detail="Database registration failed"
+            detail="Database error during registration"
         )
 
 
-# ==================================================
-# LOGIN API
-# USERNAME OR EMAIL + PASSWORD
-# ==================================================
+# =====================================================
+# LOGIN
+# =====================================================
 
 @router.post("/login")
-def login_user(
+def login(
     request: LoginRequest,
     db: Session = Depends(get_db)
 ):
 
-    username_or_email = (
-        request.username_or_email.strip().lower()
-    )
+    identifier = request.username_or_email.strip()
 
-    # Find user using username or email
     user = db.execute(
         text("""
-            SELECT
-                id,
-                username,
-                email,
-                password_hash
+            SELECT id, username, email, password_hash
             FROM users
-            WHERE LOWER(username) = :value
-               OR LOWER(email) = :value
+            WHERE LOWER(username) = LOWER(:identifier)
+               OR LOWER(email) = LOWER(:identifier)
             LIMIT 1
         """),
-        {
-            "value": username_or_email
-        }
+        {"identifier": identifier}
     ).mappings().first()
 
-    # User not found
     if not user:
 
         raise HTTPException(
@@ -356,7 +403,6 @@ def login_user(
             detail="Invalid username/email or password"
         )
 
-    # Verify password
     if not verify_password(
         request.password,
         user["password_hash"]
@@ -367,15 +413,12 @@ def login_user(
             detail="Invalid username/email or password"
         )
 
-    # Generate JWT token
     access_token = create_access_token({
         "sub": str(user["id"]),
         "email": user["email"]
     })
 
     return {
-        "success": True,
-        "message": "Login successful",
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
@@ -386,41 +429,253 @@ def login_user(
     }
 
 
-# ==================================================
-# CURRENT USER API
-# ==================================================
+# =====================================================
+# CURRENT USER
+# =====================================================
 
 @router.get("/me")
-def get_current_user(
-    token_data: dict = Depends(verify_token),
+def get_me(
+    current_user: dict = Depends(get_current_user)
+):
+
+    return current_user
+
+
+# =====================================================
+# GOOGLE LOGIN
+# =====================================================
+
+@router.get("/google/login")
+async def google_login(request: Request):
+
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+
+        raise HTTPException(
+            status_code=500,
+            detail="Google OAuth credentials missing in .env"
+        )
+
+    if not GOOGLE_CLIENT_ID.endswith(
+        ".apps.googleusercontent.com"
+    ):
+
+        raise HTTPException(
+            status_code=500,
+            detail="Google Client ID format is invalid"
+        )
+
+    # Diagnostic: inspect session before starting OAuth
+    logger.info(
+        "Google OAuth login started | Session keys: %s",
+        list(request.session.keys())
+    )
+
+    # Start OAuth using Authlib's session-based state
+    response = await oauth.google.authorize_redirect(
+        request,
+        GOOGLE_REDIRECT_URI,
+        prompt="select_account"
+    )
+
+    logger.info(
+        "Google OAuth authorization redirect created"
+    )
+
+    return response
+
+
+# =====================================================
+# GOOGLE CALLBACK
+# =====================================================
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
     db: Session = Depends(get_db)
 ):
 
-    user_id = token_data.get("sub")
+    try:
 
-    user = db.execute(
-        text("""
-            SELECT
-                id,
-                username,
-                email
-            FROM users
-            WHERE id = :id
-        """),
-        {
-            "id": user_id
-        }
-    ).mappings().first()
+        # -------------------------------------------------
+        # DEBUG SESSION STATE
+        # -------------------------------------------------
 
-    if not user:
+        received_state = request.query_params.get("state")
 
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
+        session_keys = list(request.session.keys())
+
+        logger.info(
+            "Google callback received | State present: %s | Session keys: %s",
+            bool(received_state),
+            session_keys
         )
 
-    return {
-        "success": True,
-        "user": dict(user)
-    }
-    
+        # -------------------------------------------------
+        # EXCHANGE GOOGLE AUTHORIZATION CODE
+        # -------------------------------------------------
+
+        token = await oauth.google.authorize_access_token(
+            request
+        )
+
+        logger.info(
+            "Google OAuth token successfully received"
+        )
+
+        # -------------------------------------------------
+        # GOOGLE USER INFORMATION
+        # -------------------------------------------------
+
+        google_user = token.get("userinfo")
+
+        if not google_user:
+
+            google_user = await oauth.google.userinfo(
+                token=token
+            )
+
+        if not google_user:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to retrieve Google user information"
+            )
+
+        email = google_user.get("email")
+
+        email_verified = google_user.get(
+            "email_verified",
+            False
+        )
+
+        if not email or not email_verified:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Google email is not verified"
+            )
+
+        email = email.lower().strip()
+
+        # -------------------------------------------------
+        # FIND EXISTING USER
+        # -------------------------------------------------
+
+        user = db.execute(
+            text("""
+                SELECT id, username, email
+                FROM users
+                WHERE LOWER(email) = :email
+                LIMIT 1
+            """),
+            {"email": email}
+        ).mappings().first()
+
+        # -------------------------------------------------
+        # CREATE GOOGLE USER IF NOT EXISTS
+        # -------------------------------------------------
+
+        if not user:
+
+            base_username = (
+                google_user.get("name")
+                or email.split("@")[0]
+            ).replace(" ", "_")
+
+            username = base_username[:45]
+
+            counter = 1
+
+            while db.execute(
+                text("""
+                    SELECT id
+                    FROM users
+                    WHERE LOWER(username) = LOWER(:username)
+                    LIMIT 1
+                """),
+                {"username": username}
+            ).first():
+
+                username = f"{base_username[:40]}_{counter}"
+
+                counter += 1
+
+            password_hash = pwd_context.hash(
+                os.urandom(32).hex()
+            )
+
+            db.execute(
+                text("""
+                    INSERT INTO users
+                    (username, email, password_hash)
+                    VALUES
+                    (:username, :email, :password_hash)
+                """),
+                {
+                    "username": username,
+                    "email": email,
+                    "password_hash": password_hash
+                }
+            )
+
+            db.commit()
+
+            user = db.execute(
+                text("""
+                    SELECT id, username, email
+                    FROM users
+                    WHERE LOWER(email) = :email
+                    LIMIT 1
+                """),
+                {"email": email}
+            ).mappings().first()
+
+        # -------------------------------------------------
+        # CREATE APPLICATION JWT
+        # -------------------------------------------------
+
+        access_token = create_access_token({
+            "sub": str(user["id"]),
+            "email": user["email"]
+        })
+
+        logger.info(
+            "Google authentication successful for user ID: %s",
+            user["id"]
+        )
+
+        # -------------------------------------------------
+        # REDIRECT TO FRONTEND
+        # -------------------------------------------------
+
+        frontend_url = FRONTEND_URL.rstrip("/")
+
+        return RedirectResponse(
+            url=(
+                f"{frontend_url}/oauth/callback?"
+                f"{urlencode({'token': access_token})}"
+            ),
+            status_code=302
+        )
+
+    except HTTPException:
+
+        db.rollback()
+
+        raise
+
+    except Exception as error:
+
+        db.rollback()
+
+        logger.exception(
+            "Google OAuth Callback Error"
+        )
+
+        return RedirectResponse(
+            url=(
+                f"{FRONTEND_URL.rstrip('/')}/login?"
+                f"{urlencode({'error': 'google_auth_failed'})}"
+            ),
+            status_code=302
+        )

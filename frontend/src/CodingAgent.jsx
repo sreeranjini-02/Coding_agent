@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CodingAgent.css";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_sURL = "http://127.0.0.1:8000";
 
 const MODES = [
   { id: "generate", label: "Generate", icon: "✦" },
@@ -239,7 +239,7 @@ export default function CodingAgent() {
 
           <div className="sidebar-brand">
             <div className="sidebar-logo">✦</div>
-            {sidebarOpen && <span>AI Coding Agent</span>}
+            {sidebarOpen && <span>ZENEX</span>}
           </div>
 
           <button
@@ -314,7 +314,7 @@ export default function CodingAgent() {
               </button>
             )}
 
-            <span className="header-title">Coding Agent</span>
+            <span className="header-title">ZENEX AI</span>
 
             <span className="header-mode">
               {MODES.find((item) => item.id === mode)?.label}
@@ -338,7 +338,7 @@ export default function CodingAgent() {
           {messages.length === 0 ? (
 
             <div className="chat-welcome">
-              <h1>What can I help you code?</h1>
+              <h1>Welcome to ZENEX</h1>
 
               <p>
                 Generate, debug, explain, review and optimize code.
@@ -482,7 +482,7 @@ export default function CodingAgent() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Message AI Coding Agent..."
+              placeholder="Start coding with ZENEX..."
               rows={1}
               disabled={loading}
             />

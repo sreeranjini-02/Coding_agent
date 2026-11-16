@@ -1,18 +1,24 @@
-
 import {
-  BrowserRouter,
   Routes,
   Route,
-  Navigate
+  Navigate,
+  BrowserRouter
 } from "react-router-dom";
 
-import Login from "./login.jsx";
-import Register from "./Register.jsx";
-import CodingAgent from "./CodingAgent.jsx";
+import Login from "./login";
+import Register from "./Register";
+import CodingAgent from "./CodingAgent";
+import OAuthCallback from "./OAuthCallback";
+import ForgotPassword from "./ForgotPassword";
+import ResetPassword from "./ResetPassword";
 
-
+// ===============================
+// PROTECTED ROUTE
+// ===============================
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
+  const token =
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token");
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -21,55 +27,83 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// ===============================
+// APP
+// ===============================
+function App() {
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
-function PublicRoute({ children }) {
-  const token = localStorage.getItem("token");
+    window.location.href = "/login";
+  };
 
-  if (token) {
-    return <Navigate to="/coding-agent" replace />;
-  }
-
-  return children;
-}
-
-
-export default function App() {
   return (
     <BrowserRouter>
       <Routes>
 
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
-
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
-        />
-
-        <Route
-          path="/coding-agent"
-          element={
-            <ProtectedRoute>
-              <CodingAgent />
-            </ProtectedRoute>
-          }
-        />
-
+        {/* HOME */}
         <Route
           path="/"
           element={<Navigate to="/login" replace />}
         />
 
+        {/* LOGIN */}
+        <Route
+          path="/login"
+          element={<Login />}
+        />
+
+        {/* REGISTER */}
+        <Route
+          path="/register"
+          element={<Register />}
+        />
+
+        {/* FORGOT PASSWORD */}
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+
+        {/* RESET PASSWORD */}
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
+        />
+
+        {/* GOOGLE OAUTH CALLBACK */}
+        <Route
+          path="/oauth/callback"
+          element={<OAuthCallback />}
+        />
+
+        {/* CODING AGENT */}
+        <Route
+          path="/coding-agent"
+          element={
+            <ProtectedRoute>
+              <CodingAgent
+                token={
+                  localStorage.getItem("access_token") ||
+                  localStorage.getItem("token")
+                }
+                onLogout={handleLogout}
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* OLD CHAT ROUTE */}
+        <Route
+          path="/chat"
+          element={
+            <Navigate to="/coding-agent" replace />
+          }
+        />
+
+        {/* INVALID ROUTES */}
         <Route
           path="*"
           element={<Navigate to="/login" replace />}
@@ -79,3 +113,5 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
+export default App;

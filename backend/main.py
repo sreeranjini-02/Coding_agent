@@ -1,6 +1,20 @@
 import logging
 import json
 import time
+import os
+
+from dotenv import load_dotenv
+
+# =====================================================
+# LOAD ENVIRONMENT VARIABLES
+# =====================================================
+
+load_dotenv()
+
+
+# =====================================================
+# IMPORTS
+# =====================================================
 
 from fastapi import (
     FastAPI,
@@ -13,6 +27,8 @@ from fastapi import (
 
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+
+from starlette.middleware.sessions import SessionMiddleware
 
 # Authentication
 from backend.auth_routes import (
@@ -33,29 +49,41 @@ from coding_agent import run_coding_agent, prepare_agent_prompt
 from llm_service import generate_response_stream
 
 
-# =========================
+# =====================================================
 # LOGGING
-# =========================
+# =====================================================
 
 logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
 
-# =========================
+# =====================================================
 # FASTAPI APPLICATION
-# =========================
+# =====================================================
 
 app = FastAPI(
-    title="AI Coding Agent",
-    description="AI Coding Agent with JWT Authentication, MySQL, RAG and Chat History",
+    title="ZENEX",
+    description="ZENEX - Intelligent AI Coding Assistant",
     version="1.0.0"
 )
 
 
-# =========================
-# CORS
-# =========================
+# =====================================================
+# SESSION MIDDLEWARE - GOOGLE OAUTH
+# =====================================================
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("JWT_SECRET_KEY"),
+    same_site="lax",
+    https_only=False
+)
+
+
+# =====================================================
+# CORS MIDDLEWARE
+# =====================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,18 +97,20 @@ app.add_middleware(
 )
 
 
-# =========================
+# =====================================================
 # REGISTER ROUTERS
-# =========================
+# =====================================================
 
 app.include_router(auth_router)
+
 app.include_router(file_router)
+
 app.include_router(chat_router)
 
 
-# =========================
+# =====================================================
 # HOME
-# =========================
+# =====================================================
 
 @app.get("/")
 def home():
@@ -92,9 +122,9 @@ def home():
     }
 
 
-# =========================
+# =====================================================
 # HEALTH CHECK
-# =========================
+# =====================================================
 
 @app.get("/health")
 def health_check():
@@ -105,9 +135,9 @@ def health_check():
     }
 
 
-# =========================
+# =====================================================
 # CODING AGENT API
-# =========================
+# =====================================================
 
 @app.post("/coding-agent")
 async def coding_agent_api(
@@ -130,11 +160,9 @@ async def coding_agent_api(
 
         start_time = time.perf_counter()
 
-        logger.info("Coding Agent request received")
-
-        # =========================
-        # AUTHENTICATED USER
-        # =========================
+        logger.info(
+            "Coding Agent request received"
+        )
 
         user_id = current_user.get("sub")
 
@@ -150,11 +178,11 @@ async def coding_agent_api(
             user_id
         )
 
-        # =========================
-        # FILE CONTEXT
-        # =========================
-
         uploaded_context = ""
+
+        # =================================================
+        # UPLOADED FILE PROCESSING
+        # =================================================
 
         if file:
 
@@ -197,14 +225,13 @@ async def coding_agent_api(
             else:
 
                 logger.info(
-                    "Uploaded file: %s. "
-                    "Document extraction is not implemented here.",
+                    "Uploaded file: %s. Document extraction is not implemented here.",
                     filename
                 )
 
-        # =========================
-        # VALIDATE PROMPT
-        # =========================
+        # =================================================
+        # PROMPT VALIDATION
+        # =================================================
 
         if not prompt.strip():
 
@@ -213,9 +240,9 @@ async def coding_agent_api(
                 detail="Prompt cannot be empty"
             )
 
-        # =========================
+        # =================================================
         # PREPARE AGENT PROMPT
-        # =========================
+        # =================================================
 
         final_prompt = prepare_agent_prompt(
             question=prompt,
@@ -223,9 +250,9 @@ async def coding_agent_api(
             uploaded_context=uploaded_context
         )
 
-        # =========================
+        # =================================================
         # STREAM RESPONSE
-        # =========================
+        # =================================================
 
         def response_generator():
 
@@ -245,14 +272,13 @@ async def coding_agent_api(
                 )
 
                 logger.info(
-                    "Streaming response completed | "
-                    "User=%s | Model=%s | Time=%ss",
+                    "Streaming response completed | User=%s | Model=%s | Time=%ss",
                     user_id,
                     model,
                     elapsed
                 )
 
-            except Exception as error:
+            except Exception:
 
                 logger.exception(
                     "Streaming generation failed"
@@ -285,19 +311,29 @@ async def coding_agent_api(
         )
 
 
-# =========================
-# STARTUP
-# =========================
+# =====================================================
+# STARTUP EVENT
+# =====================================================
 
 @app.on_event("startup")
 async def startup_event():
 
-    logger.info("AI Coding Agent Backend Started")
+    logger.info(
+        "AI Coding Agent Backend Started"
+    )
 
-    logger.info("Authentication: Enabled")
+    logger.info(
+        "Authentication: Enabled"
+    )
 
-    logger.info("MySQL Chat History: Enabled")
+    logger.info(
+        "MySQL Chat History: Enabled"
+    )
 
-    logger.info("Uploaded Files: Enabled")
+    logger.info(
+        "Uploaded Files: Enabled"
+    )
 
-    logger.info("Coding Agent: Enabled")
+    logger.info(
+        "Coding Agent: Enabled"
+    )

@@ -270,3 +270,23 @@ body {
         flex-wrap: wrap;
     }
 }
+.google-login-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+
+    border: 1px solid #444;
+    border-radius: 10px;
+
+    background: transparent;
+    color: inherit;
+
+    font-size: 15px;
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.google-login-btn:hover {
+    background: rgba(128, 128, 128, 0.12);
+}
