@@ -1,6 +1,7 @@
 import os
 import uuid
 from pathlib import Path
+from io import BytesIO
 
 from fastapi import (
     APIRouter,
@@ -11,10 +12,9 @@ from fastapi import (
 )
 
 from fastapi.responses import FileResponse, StreamingResponse
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-from io import BytesIO
 
 from backend.database import SessionLocal
 from backend.auth_routes import get_current_user
@@ -35,6 +35,7 @@ def get_db():
 
     try:
         yield db
+
     finally:
         db.close()
 
@@ -44,71 +45,47 @@ def get_db():
 # =====================================================
 
 # Project root/uploads/users/
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 UPLOAD_DIR = BASE_DIR / "uploads" / "users"
 
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
 # =====================================================
 # FILE SETTINGS
 # =====================================================
-
-ALLOWED_EXTENSIONS = {
+SUPPORTED_EXTENSIONS = {
     ".pdf",
     ".docx",
     ".xlsx",
-    ".xls",
     ".csv",
     ".txt",
     ".md",
+    ".json",
     ".py",
-    ".java",
     ".js",
     ".jsx",
     ".ts",
     ".tsx",
     ".html",
     ".css",
-    ".json",
-    ".sql"
+    ".sql",
 }
+
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 # =====================================================
-# SAVE FILE TO FOLDER AND DATABASE
+# HELPER: GET USER FILE FOLDER
 # =====================================================
 
-def store_uploaded_file(user_id, filename, file_content, db):
-
-    extension = Path(filename).suffix.lower()
-
-    # Validate extension
-    if extension not in ALLOWED_EXTENSIONS:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type."
-        )
-
-    # Validate empty file
-    if not file_content:
-
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is empty."
-        )
-
-    # Validate file size
-    if len(file_content) > MAX_FILE_SIZE:
-
-        raise HTTPException(
-            status_code=413,
-            detail="File size exceeds 10 MB limit."
-        )
+def get_user_folder(user_id: int) -> Path:
 
     user_folder = UPLOAD_DIR / str(user_id)
 
@@ -117,18 +94,89 @@ def store_uploaded_file(user_id, filename, file_content, db):
         exist_ok=True
     )
 
+    return user_folder
+
+
+# =====================================================
+# HELPER: STORE UPLOADED FILE
+# =====================================================
+
+def store_uploaded_file(
+    user_id,
+    filename,
+    file_content,
+    db
+):
+
+    # Get file extension
+    extension = Path(filename).suffix.lower()
+
+    # -------------------------------------------------
+    # Validate file extension
+    # -------------------------------------------------
+
+    if extension not in ALLOWED_EXTENSIONS:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type."
+        )
+
+    # -------------------------------------------------
+    # Validate empty file
+    # -------------------------------------------------
+
+    if not file_content:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty."
+        )
+
+    # -------------------------------------------------
+    # Validate file size
+    # -------------------------------------------------
+
+    if len(file_content) > MAX_FILE_SIZE:
+
+        raise HTTPException(
+            status_code=413,
+            detail="File size exceeds 10 MB limit."
+        )
+
+    # -------------------------------------------------
+    # Create user folder
+    # -------------------------------------------------
+
+    user_folder = get_user_folder(user_id)
+
+    # -------------------------------------------------
     # Generate unique filename
+    # -------------------------------------------------
+
     stored_filename = f"{uuid.uuid4().hex}{extension}"
 
     file_path = user_folder / stored_filename
 
     try:
 
-        # Save physical file
+        # =================================================
+        # STEP 1: SAVE PHYSICAL FILE
+        # =================================================
+
         with open(file_path, "wb") as buffer:
+
             buffer.write(file_content)
 
-        # Save metadata in MySQL
+        # =================================================
+        # STEP 2: SAVE METADATA IN MYSQL
+        # =================================================
+
+        # Actual file bytes are stored in the uploads folder.
+        # MySQL stores metadata only.
+        #
+        # file_content is intentionally excluded from INSERT.
+
         result = db.execute(
             text("""
                 INSERT INTO uploaded_files
@@ -137,8 +185,7 @@ def store_uploaded_file(user_id, filename, file_content, db):
                     filename,
                     stored_filename,
                     file_type,
-                    file_size,
-                    file_content
+                    file_size
                 )
                 VALUES
                 (
@@ -146,8 +193,7 @@ def store_uploaded_file(user_id, filename, file_content, db):
                     :filename,
                     :stored_filename,
                     :file_type,
-                    :file_size,
-                    NULL
+                    :file_size
                 )
             """),
             {
@@ -159,7 +205,12 @@ def store_uploaded_file(user_id, filename, file_content, db):
             }
         )
 
+        # Commit database changes
         db.commit()
+
+        # =================================================
+        # STEP 3: RETURN FILE INFORMATION
+        # =================================================
 
         return {
             "file_id": result.lastrowid,
@@ -171,10 +222,17 @@ def store_uploaded_file(user_id, filename, file_content, db):
 
     except Exception:
 
+        # Rollback database changes
         db.rollback()
 
+        # Delete physical file if database insert failed
         if file_path.exists():
-            file_path.unlink()
+
+            try:
+                file_path.unlink()
+
+            except OSError:
+                pass
 
         raise
 
@@ -196,20 +254,40 @@ async def upload_file(
 
     try:
 
+        # -------------------------------------------------
+        # Get authenticated user ID
+        # -------------------------------------------------
+
         user_id = current_user["id"]
+
+        # -------------------------------------------------
+        # Clean filename
+        # -------------------------------------------------
 
         filename = os.path.basename(
             file.filename or "uploaded_file"
         )
 
+        # -------------------------------------------------
+        # Read file
+        # -------------------------------------------------
+
         file_content = await file.read()
 
+        # -------------------------------------------------
+        # Store file
+        # -------------------------------------------------
+
         file_data = store_uploaded_file(
-            user_id,
-            filename,
-            file_content,
-            db
+            user_id=user_id,
+            filename=filename,
+            file_content=file_content,
+            db=db
         )
+
+        # -------------------------------------------------
+        # Return success response
+        # -------------------------------------------------
 
         return {
             "message": "File uploaded successfully.",
@@ -217,6 +295,7 @@ async def upload_file(
         }
 
     except HTTPException:
+
         raise
 
     except Exception as e:
@@ -248,7 +327,15 @@ def get_uploaded_files(
 
     try:
 
+        # -------------------------------------------------
+        # Get authenticated user ID
+        # -------------------------------------------------
+
         user_id = current_user["id"]
+
+        # -------------------------------------------------
+        # Retrieve file metadata
+        # -------------------------------------------------
 
         result = db.execute(
             text("""
@@ -269,8 +356,15 @@ def get_uploaded_files(
 
         files = result.mappings().all()
 
+        # -------------------------------------------------
+        # Return files
+        # -------------------------------------------------
+
         return {
-            "files": [dict(file) for file in files]
+            "files": [
+                dict(file)
+                for file in files
+            ]
         }
 
     except Exception as e:
@@ -298,7 +392,15 @@ def download_file(
 
 ):
 
+    # -------------------------------------------------
+    # Get authenticated user
+    # -------------------------------------------------
+
     user_id = current_user["id"]
+
+    # -------------------------------------------------
+    # Get file metadata
+    # -------------------------------------------------
 
     result = db.execute(
         text("""
@@ -318,6 +420,10 @@ def download_file(
 
     file_record = result.mappings().first()
 
+    # -------------------------------------------------
+    # Check file existence
+    # -------------------------------------------------
+
     if not file_record:
 
         raise HTTPException(
@@ -327,7 +433,10 @@ def download_file(
 
     stored_filename = file_record["stored_filename"]
 
-    # Download from physical folder
+    # =================================================
+    # DOWNLOAD FROM PHYSICAL UPLOAD FOLDER
+    # =================================================
+
     if stored_filename:
 
         file_path = (
@@ -349,7 +458,10 @@ def download_file(
             media_type="application/octet-stream"
         )
 
-    # Download old files stored in MySQL
+    # =================================================
+    # FALLBACK: OLD FILES STORED IN MYSQL
+    # =================================================
+
     file_content = file_record["file_content"]
 
     if file_content:
@@ -362,6 +474,10 @@ def download_file(
                     f'attachment; filename="{file_record["filename"]}"'
             }
         )
+
+    # -------------------------------------------------
+    # File not found
+    # -------------------------------------------------
 
     raise HTTPException(
         status_code=404,
@@ -386,11 +502,20 @@ def delete_file(
 
     try:
 
+        # -------------------------------------------------
+        # Get authenticated user
+        # -------------------------------------------------
+
         user_id = current_user["id"]
+
+        # -------------------------------------------------
+        # Find file
+        # -------------------------------------------------
 
         result = db.execute(
             text("""
-                SELECT stored_filename
+                SELECT
+                    stored_filename
                 FROM uploaded_files
                 WHERE id = :file_id
                 AND user_id = :user_id
@@ -403,6 +528,10 @@ def delete_file(
 
         file_record = result.mappings().first()
 
+        # -------------------------------------------------
+        # Validate file
+        # -------------------------------------------------
+
         if not file_record:
 
             raise HTTPException(
@@ -412,7 +541,10 @@ def delete_file(
 
         stored_filename = file_record["stored_filename"]
 
-        # Delete physical file
+        # =================================================
+        # STEP 1: DELETE PHYSICAL FILE
+        # =================================================
+
         if stored_filename:
 
             file_path = (
@@ -422,9 +554,13 @@ def delete_file(
             )
 
             if file_path.exists():
+
                 file_path.unlink()
 
-        # Delete database record
+        # =================================================
+        # STEP 2: DELETE DATABASE RECORD
+        # =================================================
+
         db.execute(
             text("""
                 DELETE FROM uploaded_files
@@ -439,11 +575,16 @@ def delete_file(
 
         db.commit()
 
+        # -------------------------------------------------
+        # Return success
+        # -------------------------------------------------
+
         return {
             "message": "File deleted successfully."
         }
 
     except HTTPException:
+
         raise
 
     except Exception as e:
