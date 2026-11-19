@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.database import SessionLocal
-from backend.auth_routes import verify_token
+from backend.auth_routes import get_current_user
 
 
 router = APIRouter(
@@ -66,7 +66,7 @@ def get_user_id(current_user):
 def create_conversation(
     request: ConversationCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(verify_token)
+    current_user=Depends(get_current_user)
 ):
     user_id = get_user_id(current_user)
 
@@ -114,7 +114,7 @@ def create_conversation(
 @router.get("/conversations")
 def get_conversations(
     db: Session = Depends(get_db),
-    current_user=Depends(verify_token)
+    current_user=Depends(get_current_user)
 ):
     user_id = get_user_id(current_user)
 
@@ -164,7 +164,7 @@ def get_conversations(
 def get_messages(
     conversation_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(verify_token)
+    current_user=Depends(get_current_user)
 ):
     user_id = get_user_id(current_user)
 
@@ -241,7 +241,7 @@ def save_message(
     conversation_id: int,
     request: MessageCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(verify_token)
+    current_user=Depends(get_current_user)
 ):
     user_id = get_user_id(current_user)
 
@@ -357,7 +357,7 @@ def save_message(
 def delete_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(verify_token)
+    current_user=Depends(get_current_user)
 ):
     user_id = get_user_id(current_user)
 

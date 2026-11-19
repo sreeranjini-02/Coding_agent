@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./CodingAgent.css";
 
-const API_sURL = "http://127.0.0.1:8000";
+// FIXED API URL
+const API_URL = "http://127.0.0.1:8000";
 
 const MODES = [
   { id: "generate", label: "Generate", icon: "✦" },
@@ -125,8 +126,7 @@ export default function CodingAgent() {
         formData.append("file", selectedFile);
       }
 
-      setSelectedFile(null);
-
+      // Send request to FastAPI backend
       const response = await fetch(`${API_URL}/coding-agent`, {
         method: "POST",
         headers: {
@@ -146,6 +146,7 @@ export default function CodingAgent() {
 
         try {
           const data = await response.json();
+
           message =
             typeof data.detail === "string"
               ? data.detail
@@ -156,6 +157,9 @@ export default function CodingAgent() {
 
         throw new Error(message);
       }
+
+      // Backend accepted the request, so the attachment can be cleared.
+      setSelectedFile(null);
 
       if (!response.body) {
         throw new Error("Streaming response unavailable.");

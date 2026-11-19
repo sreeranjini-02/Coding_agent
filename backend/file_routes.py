@@ -1,6 +1,5 @@
 import os
 import uuid
-import shutil
 from pathlib import Path
 
 from fastapi import (
@@ -11,12 +10,14 @@ from fastapi import (
     HTTPException
 )
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from io import BytesIO
+
 from backend.database import SessionLocal
-from backend.auth_routes import verify_token
+from backend.auth_routes import get_current_user
 
 
 router = APIRouter(
@@ -25,9 +26,9 @@ router = APIRouter(
 )
 
 
-# --------------------------------------------------
+# =====================================================
 # DATABASE
-# --------------------------------------------------
+# =====================================================
 
 def get_db():
     db = SessionLocal()
@@ -38,20 +39,21 @@ def get_db():
         db.close()
 
 
-# --------------------------------------------------
+# =====================================================
 # UPLOAD DIRECTORY
-# --------------------------------------------------
+# =====================================================
 
-BASE_DIR = Path(__file__).resolve().parent
+# Project root/uploads/users/
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 UPLOAD_DIR = BASE_DIR / "uploads" / "users"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# --------------------------------------------------
+# =====================================================
 # FILE SETTINGS
-# --------------------------------------------------
+# =====================================================
 
 ALLOWED_EXTENSIONS = {
     ".pdf",
@@ -60,6 +62,7 @@ ALLOWED_EXTENSIONS = {
     ".xls",
     ".csv",
     ".txt",
+    ".md",
     ".py",
     ".java",
     ".js",
@@ -75,84 +78,55 @@ ALLOWED_EXTENSIONS = {
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
-# --------------------------------------------------
-# SAVE FILE TO FOLDER
-# --------------------------------------------------
+# =====================================================
+# SAVE FILE TO FOLDER AND DATABASE
+# =====================================================
 
-def save_file_to_folder(user_id, filename, file_content):
-
-    user_folder = UPLOAD_DIR / str(user_id)
-
-    user_folder.mkdir(parents=True, exist_ok=True)
+def store_uploaded_file(user_id, filename, file_content, db):
 
     extension = Path(filename).suffix.lower()
 
+    # Validate extension
+    if extension not in ALLOWED_EXTENSIONS:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type."
+        )
+
+    # Validate empty file
+    if not file_content:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty."
+        )
+
+    # Validate file size
+    if len(file_content) > MAX_FILE_SIZE:
+
+        raise HTTPException(
+            status_code=413,
+            detail="File size exceeds 10 MB limit."
+        )
+
+    user_folder = UPLOAD_DIR / str(user_id)
+
+    user_folder.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    # Generate unique filename
     stored_filename = f"{uuid.uuid4().hex}{extension}"
 
     file_path = user_folder / stored_filename
 
-    with open(file_path, "wb") as buffer:
-        buffer.write(file_content)
-
-    return stored_filename, file_path
-
-
-# --------------------------------------------------
-# UPLOAD FILE
-# --------------------------------------------------
-
-@router.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    current_user=Depends(verify_token),
-    db: Session = Depends(get_db)
-):
-
-    file_path = None
-
     try:
 
-        user_id = current_user["id"]
-
-        filename = os.path.basename(file.filename or "uploaded_file")
-
-        extension = Path(filename).suffix.lower()
-
-        # Validate extension
-        if extension not in ALLOWED_EXTENSIONS:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Unsupported file type."
-            )
-
-        # Read file
-        file_content = await file.read()
-
-        # Empty file validation
-        if not file_content:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Uploaded file is empty."
-            )
-
-        # Size validation
-        if len(file_content) > MAX_FILE_SIZE:
-
-            raise HTTPException(
-                status_code=413,
-                detail="File size exceeds 10 MB limit."
-            )
-
         # Save physical file
-        stored_filename, file_path = save_file_to_folder(
-            user_id,
-            filename,
-            file_content
-        )
-
-        file_size = len(file_content)
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
 
         # Save metadata in MySQL
         result = db.execute(
@@ -181,34 +155,71 @@ async def upload_file(
                 "filename": filename,
                 "stored_filename": stored_filename,
                 "file_type": extension,
-                "file_size": file_size
+                "file_size": len(file_content)
             }
         )
 
         db.commit()
 
-        file_id = result.lastrowid
-
         return {
-            "message": "File uploaded successfully.",
-            "file_id": file_id,
+            "file_id": result.lastrowid,
             "filename": filename,
             "stored_filename": stored_filename,
             "file_type": extension,
-            "file_size": file_size
+            "file_size": len(file_content)
+        }
+
+    except Exception:
+
+        db.rollback()
+
+        if file_path.exists():
+            file_path.unlink()
+
+        raise
+
+
+# =====================================================
+# UPLOAD FILE API
+# =====================================================
+
+@router.post("/upload")
+async def upload_file(
+
+    file: UploadFile = File(...),
+
+    current_user: dict = Depends(get_current_user),
+
+    db: Session = Depends(get_db)
+
+):
+
+    try:
+
+        user_id = current_user["id"]
+
+        filename = os.path.basename(
+            file.filename or "uploaded_file"
+        )
+
+        file_content = await file.read()
+
+        file_data = store_uploaded_file(
+            user_id,
+            filename,
+            file_content,
+            db
+        )
+
+        return {
+            "message": "File uploaded successfully.",
+            **file_data
         }
 
     except HTTPException:
         raise
 
     except Exception as e:
-
-        db.rollback()
-
-        # Remove physical file if database insertion fails
-        if file_path and file_path.exists():
-
-            file_path.unlink()
 
         print("File upload error:", str(e))
 
@@ -222,14 +233,17 @@ async def upload_file(
         await file.close()
 
 
-# --------------------------------------------------
+# =====================================================
 # LIST USER FILES
-# --------------------------------------------------
+# =====================================================
 
 @router.get("/")
 def get_uploaded_files(
-    current_user=Depends(verify_token),
+
+    current_user: dict = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
 
     try:
@@ -269,15 +283,19 @@ def get_uploaded_files(
         )
 
 
-# --------------------------------------------------
+# =====================================================
 # DOWNLOAD FILE
-# --------------------------------------------------
+# =====================================================
 
 @router.get("/{file_id}/download")
 def download_file(
+
     file_id: int,
-    current_user=Depends(verify_token),
+
+    current_user: dict = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
 
     user_id = current_user["id"]
@@ -307,12 +325,16 @@ def download_file(
             detail="File not found."
         )
 
-    # New folder-based files
     stored_filename = file_record["stored_filename"]
 
+    # Download from physical folder
     if stored_filename:
 
-        file_path = UPLOAD_DIR / str(user_id) / stored_filename
+        file_path = (
+            UPLOAD_DIR
+            / str(user_id)
+            / stored_filename
+        )
 
         if not file_path.exists():
 
@@ -327,13 +349,10 @@ def download_file(
             media_type="application/octet-stream"
         )
 
-    # Old files stored in MySQL BLOB
+    # Download old files stored in MySQL
     file_content = file_record["file_content"]
 
     if file_content:
-
-        from io import BytesIO
-        from fastapi.responses import StreamingResponse
 
         return StreamingResponse(
             BytesIO(file_content),
@@ -350,22 +369,25 @@ def download_file(
     )
 
 
-# --------------------------------------------------
+# =====================================================
 # DELETE FILE
-# --------------------------------------------------
+# =====================================================
 
 @router.delete("/{file_id}")
 def delete_file(
+
     file_id: int,
-    current_user=Depends(verify_token),
+
+    current_user: dict = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
 
     try:
 
         user_id = current_user["id"]
 
-        # Find file
         result = db.execute(
             text("""
                 SELECT stored_filename
@@ -393,13 +415,16 @@ def delete_file(
         # Delete physical file
         if stored_filename:
 
-            file_path = UPLOAD_DIR / str(user_id) / stored_filename
+            file_path = (
+                UPLOAD_DIR
+                / str(user_id)
+                / stored_filename
+            )
 
             if file_path.exists():
-
                 file_path.unlink()
 
-        # Delete metadata from MySQL
+        # Delete database record
         db.execute(
             text("""
                 DELETE FROM uploaded_files

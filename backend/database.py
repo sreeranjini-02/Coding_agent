@@ -1,11 +1,14 @@
 from sqlalchemy import create_engine, URL
 from sqlalchemy.orm import sessionmaker
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # MySQL Credentials
-MYSQL_USER = "root"
-MYSQL_PASSWORD = "Sree@MySQL2026"
-
-DATABASE_NAME = "coding_agent_db"
+MYSQL_USER = os.getenv("MYSQL_USER", "root")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "coding_agent_db")
 
 # Database Connection
 DATABASE_URL = URL.create(

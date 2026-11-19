@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "./auth.css";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -69,170 +70,102 @@ export default function Register() {
     }
   };
 
-  const inputStyle = {
-    width: "100%",
-    padding: "12px",
-    background: "#2f2f2f",
-    border: "1px solid #454545",
-    borderRadius: "9px",
-    color: "#ffffff",
-    boxSizing: "border-box",
-    marginBottom: "18px",
-    outline: "none",
-  };
-
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#212121",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      color: "white",
-      fontFamily: "Arial, sans-serif",
-    }}>
+    <div className="auth-page">
+      <div className="auth-card">
 
-      <div style={{
-        width: "100%",
-        maxWidth: "400px",
-        padding: "30px",
-        border: "1px solid #383838",
-        borderRadius: "18px",
-        boxSizing: "border-box",
-      }}>
-
-        <h1 style={{
-          textAlign: "center",
-          fontSize: "28px",
-          marginBottom: "8px",
-        }}>
-          Create account
-        </h1>
-
-        <p style={{
-          textAlign: "center",
-          color: "#a1a1aa",
-          fontSize: "14px",
-          marginBottom: "25px",
-        }}>
-          Get started with ZENEX
-        </p>
-
-        {error && (
-          <div style={{
-            background: "#3b2020",
-            color: "#ffaaaa",
-            padding: "12px",
-            borderRadius: "8px",
-            fontSize: "13px",
-            marginBottom: "18px",
-          }}>
-            {error}
+        <div className="auth-brand">
+          <div className="auth-logo">Z</div>
+          <div className="auth-brand-name">
+            ZEN<span>EX</span>
           </div>
-        )}
+        </div>
 
-        {success && (
-          <div style={{
-            background: "#16351f",
-            color: "#86efac",
-            padding: "12px",
-            borderRadius: "8px",
-            fontSize: "13px",
-            marginBottom: "18px",
-          }}>
-            {success}
-          </div>
-        )}
+        <h1 className="auth-title">Create account</h1>
+        <p className="auth-subtitle">Get started with ZENEX</p>
+
+        {error && <div className="auth-alert error">{error}</div>}
+
+        {success && <div className="auth-alert success">{success}</div>}
 
         <form onSubmit={handleRegister}>
 
-          <label>Username</label>
+          <div className="auth-field">
+            <label htmlFor="register-username">Username</label>
+            <input
+              id="register-username"
+              className="auth-input"
+              type="text"
+              placeholder="Choose a username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              minLength={3}
+              maxLength={50}
+              required
+            />
+          </div>
 
-          <input
-            type="text"
-            placeholder="Choose a username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            style={inputStyle}
-            minLength={3}
-            maxLength={50}
-            required
-          />
+          <div className="auth-field">
+            <label htmlFor="register-email">Email</label>
+            <input
+              id="register-email"
+              className="auth-input"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-          <label>Email</label>
+          <div className="auth-field">
+            <label htmlFor="register-password">Password</label>
+            <input
+              id="register-password"
+              className="auth-input"
+              type="password"
+              placeholder="Create a password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              maxLength={72}
+              required
+            />
+          </div>
 
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-            required
-          />
-
-          <label>Password</label>
-
-          <input
-            type="password"
-            placeholder="Create a password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-            minLength={8}
-            maxLength={72}
-            required
-          />
-
-          <label>Confirm Password</label>
-
-          <input
-            type="password"
-            placeholder="Confirm your password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            style={inputStyle}
-            required
-          />
+          <div className="auth-field">
+            <label htmlFor="register-confirm">Confirm Password</label>
+            <input
+              id="register-confirm"
+              className="auth-input"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
 
           <button
             type="submit"
+            className="auth-button"
             disabled={loading}
-            style={{
-              width: "100%",
-              padding: "12px",
-              background: "#ffffff",
-              color: "#000000",
-              border: "none",
-              borderRadius: "9px",
-              fontWeight: "600",
-              cursor: "pointer",
-              opacity: loading ? 0.6 : 1,
-            }}
           >
             {loading ? "Creating account..." : "Create Account"}
           </button>
 
         </form>
 
-        <p style={{
-          textAlign: "center",
-          color: "#a1a1aa",
-          fontSize: "13px",
-          marginTop: "22px",
-        }}>
-          Already have an account?{" "}
-          <span
+        <div className="auth-footer">
+          Already have an account?
+          <button
+            type="button"
+            className="auth-link"
             onClick={() => navigate("/login")}
-            style={{
-              color: "white",
-              cursor: "pointer",
-              fontWeight: "600",
-            }}
           >
             Sign in
-          </span>
-        </p>
+          </button>
+        </div>
 
       </div>
     </div>

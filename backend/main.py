@@ -1,15 +1,17 @@
 import logging
-import json
 import time
 import os
 
+from pathlib import Path
 from dotenv import load_dotenv
 
 # =====================================================
 # LOAD ENVIRONMENT VARIABLES
 # =====================================================
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env", override=True)
 
 
 # =====================================================
@@ -33,17 +35,26 @@ from starlette.middleware.sessions import SessionMiddleware
 # Authentication
 from backend.auth_routes import (
     router as auth_router,
-    verify_token
+    get_current_user
 )
 
-# File routes
-from backend.file_routes import router as file_router
+# File routes and storage
+from backend.file_routes import (
+    router as file_router,
+    store_uploaded_file
+)
+
+# Database
+from backend.file_routes import get_db
 
 # Chat history
 from backend.chat_routes import router as chat_router
 
 # Coding agent
-from coding_agent import run_coding_agent, prepare_agent_prompt
+from coding_agent import (
+    run_coding_agent,
+    prepare_agent_prompt
+)
 
 # Gemini streaming
 from llm_service import generate_response_stream
@@ -53,9 +64,33 @@ from llm_service import generate_response_stream
 # LOGGING
 # =====================================================
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
 
 logger = logging.getLogger(__name__)
+
+
+# =====================================================
+# ENVIRONMENT CONFIGURATION
+# =====================================================
+
+JWT_SECRET_KEY = os.getenv(
+    "JWT_SECRET_KEY",
+    ""
+).strip()
+
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173"
+).strip().rstrip("/")
+
+if not JWT_SECRET_KEY:
+
+    raise RuntimeError(
+        "JWT_SECRET_KEY is missing from root .env"
+    )
 
 
 # =====================================================
@@ -70,14 +105,16 @@ app = FastAPI(
 
 
 # =====================================================
-# SESSION MIDDLEWARE - GOOGLE OAUTH
+# SESSION MIDDLEWARE
 # =====================================================
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("JWT_SECRET_KEY"),
+    secret_key=JWT_SECRET_KEY,
+    session_cookie="zenex_session",
     same_site="lax",
-    https_only=False
+    https_only=False,
+    max_age=600
 )
 
 
@@ -87,13 +124,28 @@ app.add_middleware(
 
 app.add_middleware(
     CORSMiddleware,
+
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173"
     ],
+
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+    ],
+
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept"
+    ]
 )
 
 
@@ -152,7 +204,9 @@ async def coding_agent_api(
 
     file: UploadFile | None = File(None),
 
-    current_user: dict = Depends(verify_token)
+    current_user: dict = Depends(get_current_user),
+
+    db=Depends(get_db)
 
 ):
 
@@ -164,7 +218,11 @@ async def coding_agent_api(
             "Coding Agent request received"
         )
 
-        user_id = current_user.get("sub")
+        # =================================================
+        # USER AUTHENTICATION
+        # =================================================
+
+        user_id = current_user.get("id")
 
         if not user_id:
 
@@ -181,34 +239,60 @@ async def coding_agent_api(
         uploaded_context = ""
 
         # =================================================
-        # UPLOADED FILE PROCESSING
+        # UPLOADED FILE PROCESSING AND STORAGE
         # =================================================
 
         if file:
 
-            filename = file.filename or "uploaded_file"
+            filename = os.path.basename(
+                file.filename or "uploaded_file"
+            )
 
-            file_extension = filename.lower().split(".")[-1]
+            file_content = await file.read()
+
+            # Store uploaded file
+            file_data = store_uploaded_file(
+                user_id=user_id,
+                filename=filename,
+                file_content=file_content,
+                db=db
+            )
+
+            logger.info(
+                "File saved successfully: %s",
+                filename
+            )
+
+            logger.info(
+                "Stored filename: %s",
+                file_data["stored_filename"]
+            )
+
+            # =================================================
+            # READ TEXT-BASED FILES
+            # =================================================
 
             supported_text_extensions = {
-                "txt",
-                "py",
-                "java",
-                "js",
-                "jsx",
-                "ts",
-                "tsx",
-                "html",
-                "css",
-                "json",
-                "sql",
-                "md",
-                "csv"
+                ".txt",
+                ".py",
+                ".java",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".html",
+                ".css",
+                ".json",
+                ".sql",
+                ".md",
+                ".csv"
             }
 
-            if file_extension in supported_text_extensions:
+            extension = os.path.splitext(
+                filename
+            )[1].lower()
 
-                file_content = await file.read()
+            if extension in supported_text_extensions:
 
                 uploaded_context = file_content.decode(
                     "utf-8",
@@ -218,14 +302,14 @@ async def coding_agent_api(
                 uploaded_context = uploaded_context[:12000]
 
                 logger.info(
-                    "Uploaded text file processed: %s",
+                    "Text file processed: %s",
                     filename
                 )
 
             else:
 
                 logger.info(
-                    "Uploaded file: %s. Document extraction is not implemented here.",
+                    "Document extraction not implemented for this endpoint: %s",
                     filename
                 )
 
@@ -272,7 +356,7 @@ async def coding_agent_api(
                 )
 
                 logger.info(
-                    "Streaming response completed | User=%s | Model=%s | Time=%ss",
+                    "Streaming completed | User=%s | Model=%s | Time=%ss",
                     user_id,
                     model,
                     elapsed
@@ -319,11 +403,30 @@ async def coding_agent_api(
 async def startup_event():
 
     logger.info(
-        "AI Coding Agent Backend Started"
+        "=========================================="
+    )
+
+    logger.info(
+        "ZENEX Backend Started Successfully"
     )
 
     logger.info(
         "Authentication: Enabled"
+    )
+
+    logger.info(
+        "Google OAuth: %s",
+        "Enabled"
+        if os.getenv("GOOGLE_CLIENT_ID")
+        and os.getenv("GOOGLE_CLIENT_SECRET")
+        else "Not configured"
+    )
+
+    logger.info(
+        "Microsoft OAuth: %s",
+        "Enabled"
+        if os.getenv("MICROSOFT_CLIENT_ID")
+        else "Not configured"
     )
 
     logger.info(
@@ -336,4 +439,13 @@ async def startup_event():
 
     logger.info(
         "Coding Agent: Enabled"
+    )
+
+    logger.info(
+        "Frontend: %s",
+        FRONTEND_URL
+    )
+
+    logger.info(
+        "=========================================="
     )

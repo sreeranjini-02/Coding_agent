@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import "./auth.css";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -77,118 +78,58 @@ export default function ResetPassword() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#212121",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "20px",
-      color: "white",
-      fontFamily: "Arial, sans-serif",
-    }}>
-      <div style={{
-        width: "100%",
-        maxWidth: "390px",
-        padding: "28px",
-        border: "1px solid #383838",
-        borderRadius: "18px",
-        boxSizing: "border-box",
-      }}>
+    <div className="auth-page">
+      <div className="auth-card">
 
-        <h2 style={{ textAlign: "center" }}>
-          Reset Password
-        </h2>
+        <div className="auth-brand">
+          <div className="auth-logo">Z</div>
+          <div className="auth-brand-name">
+            ZEN<span>EX</span>
+          </div>
+        </div>
 
-        <p style={{
-          textAlign: "center",
-          color: "#a1a1aa",
-          fontSize: "14px",
-          marginBottom: "25px",
-        }}>
+        <h1 className="auth-title">Reset password</h1>
+        <p className="auth-subtitle">
           Create a new password for your account.
         </p>
 
-        {message && (
-          <p style={{ color: "#86efac" }}>
-            {message}
-          </p>
-        )}
+        {message && <div className="auth-alert success">{message}</div>}
 
-        {error && (
-          <p style={{ color: "#ffaaaa" }}>
-            {error}
-          </p>
-        )}
+        {error && <div className="auth-alert error">{error}</div>}
 
         <form onSubmit={handleResetPassword}>
 
-          <label style={{
-            display: "block",
-            marginBottom: "8px",
-            fontSize: "13px",
-          }}>
-            New Password
-          </label>
+          <div className="auth-field">
+            <label htmlFor="reset-password">New Password</label>
+            <input
+              id="reset-password"
+              className="auth-input"
+              type="password"
+              placeholder="New password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              required
+            />
+          </div>
 
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="New password"
-            minLength={8}
-            required
-            style={{
-              width: "100%",
-              padding: "12px",
-              background: "#2f2f2f",
-              border: "1px solid #454545",
-              borderRadius: "9px",
-              color: "white",
-              boxSizing: "border-box",
-              marginBottom: "18px",
-            }}
-          />
-
-          <label style={{
-            display: "block",
-            marginBottom: "8px",
-            fontSize: "13px",
-          }}>
-            Confirm Password
-          </label>
-
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm password"
-            required
-            style={{
-              width: "100%",
-              padding: "12px",
-              background: "#2f2f2f",
-              border: "1px solid #454545",
-              borderRadius: "9px",
-              color: "white",
-              boxSizing: "border-box",
-              marginBottom: "18px",
-            }}
-          />
+          <div className="auth-field">
+            <label htmlFor="reset-confirm">Confirm Password</label>
+            <input
+              id="reset-confirm"
+              className="auth-input"
+              type="password"
+              placeholder="Confirm password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
 
           <button
             type="submit"
+            className="auth-button"
             disabled={loading}
-            style={{
-              width: "100%",
-              padding: "12px",
-              background: "white",
-              color: "black",
-              border: "none",
-              borderRadius: "9px",
-              fontWeight: "600",
-              cursor: "pointer",
-            }}
           >
             {loading ? "Updating..." : "Reset Password"}
           </button>

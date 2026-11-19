@@ -31,6 +31,7 @@ function ProtectedRoute({ children }) {
 // APP
 // ===============================
 function App() {
+
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("token");
@@ -98,9 +99,7 @@ function App() {
         {/* OLD CHAT ROUTE */}
         <Route
           path="/chat"
-          element={
-            <Navigate to="/coding-agent" replace />
-          }
+          element={<Navigate to="/coding-agent" replace />}
         />
 
         {/* INVALID ROUTES */}

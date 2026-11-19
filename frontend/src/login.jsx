@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 const API_URL = "http://localhost:8000";
@@ -15,6 +15,36 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // GOOGLE AND MICROSOFT OAUTH ERROR HANDLING
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const oauthError = params.get("error");
+    const stage = params.get("stage");
+
+    if (oauthError === "microsoft_auth_failed") {
+      setError(
+        stage
+          ? `Microsoft login failed during: ${stage}. Please check the backend terminal.`
+          : "Microsoft authentication failed. Please try again."
+      );
+    } else if (oauthError === "google_auth_failed") {
+      setError("Google authentication failed. Please try again.");
+    } else if (oauthError) {
+      setError(`Authentication failed: ${oauthError}`);
+    }
+
+    // Remove OAuth error parameters from the browser URL
+    if (oauthError) {
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+    }
+  }, []);
+
+  // FORM INPUT
   const handleChange = (e) => {
     setForm({
       ...form,
@@ -22,6 +52,7 @@ export default function Login() {
     });
   };
 
+  // EMAIL LOGIN
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -55,6 +86,10 @@ export default function Login() {
         );
       }
 
+      if (!data.access_token) {
+        throw new Error("Access token was not received from the server.");
+      }
+
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("token", data.access_token);
 
@@ -62,7 +97,8 @@ export default function Login() {
         localStorage.setItem("user", JSON.stringify(data.user));
       }
 
-      navigate("/coding-agent");
+      navigate("/coding-agent", { replace: true });
+
     } catch (err) {
       setError(err.message || "Something went wrong.");
     } finally {
@@ -70,11 +106,26 @@ export default function Login() {
     }
   };
 
+  // CLEAR OLD LOGIN DATA BEFORE OAUTH
+  const clearOldLoginData = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  };
+
+  // GOOGLE LOGIN
   const handleGoogleLogin = () => {
+    setError("");
+    clearOldLoginData();
+
     window.location.href = `${API_URL}/auth/google/login`;
   };
 
+  // MICROSOFT LOGIN
   const handleMicrosoftLogin = () => {
+    setError("");
+    clearOldLoginData();
+
     window.location.href = `${API_URL}/auth/microsoft/login`;
   };
 
@@ -92,12 +143,11 @@ export default function Login() {
         .zenex-login-page {
           width: 100%;
           height: 100vh;
-          min-height: 600px;
-          background: #000000;
+          background: #050505;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 20px;
+          padding: 16px;
           font-family: 'Inter', sans-serif;
           overflow: hidden;
         }
@@ -105,26 +155,25 @@ export default function Login() {
         .zenex-login-card {
           width: 100%;
           max-width: 1250px;
-          height: min(680px, calc(100vh - 40px));
-          min-height: 560px;
+          height: calc(100vh - 32px);
+          max-height: 720px;
           display: grid;
           grid-template-columns: 1fr 1fr;
           background: #050505;
           border-radius: 20px;
           overflow: hidden;
-          border: 1px solid #171717;
+          border: 1px solid #292436;
         }
 
         /* LEFT SIDE */
 
         .zenex-login-left {
-          padding: 35px 65px;
+          padding: 28px 56px;
           display: flex;
           flex-direction: column;
           justify-content: center;
           background: #050505;
-          position: relative;
-          z-index: 2;
+          overflow: hidden;
         }
 
         .zenex-brand {
@@ -135,42 +184,41 @@ export default function Login() {
         }
 
         .zenex-logo {
-          width: 38px;
-          height: 38px;
+          width: 40px;
+          height: 40px;
           border-radius: 11px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
-          font-size: 20px;
+          font-size: 21px;
           font-weight: 800;
-          background: linear-gradient(135deg,#b5a0ff,#7356ed);
-          box-shadow: 0 0 20px rgba(145,115,255,0.2);
+          background: linear-gradient(135deg,#c4b5fd,#8b5cf6);
+          box-shadow: 0 0 20px rgba(167,139,250,0.3);
         }
 
         .zenex-brand-name {
           color: white;
-          font-size: 21px;
+          font-size: 22px;
           font-weight: 800;
           letter-spacing: 2px;
         }
 
         .zenex-brand-name span {
-          color: #a997ff;
+          color: #a78bfa;
         }
 
         .zenex-form-heading {
-          font-size: 27px;
+          font-size: 29px;
           color: white;
           font-weight: 600;
           margin: 0 0 10px;
-          letter-spacing: -0.7px;
         }
 
         .zenex-form-subtitle {
-          color: #9999ac;
+          color: #a1a1aa;
           font-size: 13px;
-          line-height: 1.6;
+          line-height: 1.7;
           margin-bottom: 25px;
         }
 
@@ -180,7 +228,7 @@ export default function Login() {
 
         .zenex-field label {
           display: block;
-          color: #d6d6e3;
+          color: #d4d4d8;
           font-size: 12px;
           margin-bottom: 8px;
         }
@@ -189,8 +237,8 @@ export default function Login() {
           width: 100%;
           height: 45px;
           padding: 0 13px;
-          background: #101010;
-          border: 1px solid #292929;
+          background: #111019;
+          border: 1px solid #292436;
           border-radius: 8px;
           color: white;
           font-size: 13px;
@@ -199,12 +247,12 @@ export default function Login() {
         }
 
         .zenex-input::placeholder {
-          color: #66667b;
+          color: #71717a;
         }
 
         .zenex-input:focus {
-          border-color: #a493ff;
-          box-shadow: 0 0 0 2px rgba(164,147,255,0.1);
+          border-color: #a78bfa;
+          box-shadow: 0 0 0 2px rgba(167,139,250,0.12);
         }
 
         .zenex-password-wrapper {
@@ -222,7 +270,7 @@ export default function Login() {
           transform: translateY(-50%);
           background: none;
           border: none;
-          color: #aaaac0;
+          color: #c4b5fd;
           cursor: pointer;
           font-size: 12px;
         }
@@ -234,7 +282,7 @@ export default function Login() {
         }
 
         .zenex-forgot a {
-          color: #b4a3ff;
+          color: #c4b5fd;
           font-size: 12px;
           text-decoration: none;
         }
@@ -243,21 +291,27 @@ export default function Login() {
           color: white;
         }
 
+        /* SIGN IN BUTTON */
+
         .zenex-submit {
-          width: 100%;
-          height: 45px;
-          background: linear-gradient(135deg,#c3b4ff,#a18aff);
+          display: block;
+          width: 75%;
+          height: 40px;
+          margin: 0 auto;
+          background: linear-gradient(135deg,#c4b5fd,#a78bfa);
           border: none;
           border-radius: 8px;
-          color: #141020;
+          color: #100b1c;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
           transition: 0.2s;
         }
 
         .zenex-submit:hover {
-          box-shadow: 0 5px 20px rgba(163,139,255,0.2);
+          background: #c4b5fd;
+          box-shadow: 0 5px 20px rgba(167,139,250,0.25);
+          transform: translateY(-1px);
         }
 
         .zenex-submit:disabled {
@@ -265,13 +319,15 @@ export default function Login() {
           cursor: not-allowed;
         }
 
+        /* DIVIDER */
+
         .zenex-divider {
           display: flex;
           align-items: center;
           gap: 12px;
-          color: #66667b;
+          color: #71717a;
           font-size: 10px;
-          margin: 19px 0;
+          margin: 20px 0;
         }
 
         .zenex-divider::before,
@@ -279,45 +335,57 @@ export default function Login() {
           content: "";
           flex: 1;
           height: 1px;
-          background: #252535;
+          background: #292436;
+        }
+
+        /* SOCIAL LOGIN */
+
+        .zenex-social-row {
+          display: flex;
+          gap: 12px;
+          width: 100%;
         }
 
         .zenex-social-button {
-          width: 100%;
-          height: 41px;
+          flex: 1;
+          min-width: 0;
+          height: 43px;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
-          background: #101010;
-          border: 1px solid #292929;
+          gap: 8px;
+          background: #111019;
+          border: 1px solid #292436;
           border-radius: 8px;
           color: #e4e4ef;
           font-size: 12px;
           cursor: pointer;
           transition: 0.2s;
-          margin-bottom: 10px;
+          white-space: nowrap;
         }
 
         .zenex-social-button:hover {
-          background: #191919;
-          border-color: #45445c;
+          background: #191522;
+          border-color: #a78bfa;
         }
 
         .zenex-social-button svg {
           width: 17px;
           height: 17px;
+          flex-shrink: 0;
         }
+
+        /* REGISTER */
 
         .zenex-register {
           text-align: center;
-          margin-top: 16px;
-          color: #9292a8;
+          margin-top: 22px;
+          color: #a1a1aa;
           font-size: 12px;
         }
 
         .zenex-register a {
-          color: #b7a6ff;
+          color: #c4b5fd;
           text-decoration: none;
           font-weight: 600;
         }
@@ -328,14 +396,14 @@ export default function Login() {
 
         .zenex-terms {
           text-align: center;
-          color: #66667b;
+          color: #71717a;
           font-size: 10px;
           margin-top: 20px;
-          line-height: 1.6;
+          line-height: 1.7;
         }
 
         .zenex-terms a {
-          color: #aaa0d7;
+          color: #c4b5fd;
           text-decoration: underline;
         }
 
@@ -347,9 +415,11 @@ export default function Login() {
           font-size: 12px;
           border-radius: 8px;
           margin-bottom: 15px;
+          line-height: 1.6;
+          overflow-wrap: anywhere;
         }
 
-        /* RIGHT SIDE */
+        /* RIGHT ROBOT SECTION */
 
         .zenex-login-right {
           position: relative;
@@ -359,157 +429,235 @@ export default function Login() {
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          background: #050505;
+          background: radial-gradient(
+            circle at center,
+            #171024 0%,
+            #0b0811 55%,
+            #050505 100%
+          );
         }
 
         .zenex-glow {
           position: absolute;
           width: 350px;
           height: 350px;
-          background: #7656e9;
+          background: #8b5cf6;
           filter: blur(140px);
-          opacity: 0.13;
+          opacity: 0.20;
           border-radius: 50%;
-          bottom: -150px;
-          right: -100px;
           pointer-events: none;
         }
 
-        .zenex-visual-top {
-          width: 100%;
-          max-width: 430px;
-          position: relative;
-          z-index: 1;
-        }
+        /* ROBOT */
 
-        .zenex-code-window {
-          background: #0b0b12;
-          border: 1px solid #252535;
-          border-radius: 13px;
-          overflow: hidden;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.35);
-        }
-
-        .zenex-window-header {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          padding: 12px 15px;
-          border-bottom: 1px solid #252535;
-        }
-
-        .zenex-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #ff6b7a;
-        }
-
-        .zenex-dot:nth-child(2) {
-          background: #ffc76b;
-        }
-
-        .zenex-dot:nth-child(3) {
-          background: #76e5a7;
-        }
-
-        .zenex-window-title {
-          margin-left: auto;
-          color: #75758e;
-          font-size: 10px;
-        }
-
-        .zenex-code {
-          padding: 20px;
-          font-family: Consolas, monospace;
-          font-size: 12px;
-          line-height: 1.9;
-          color: #c4c4db;
-        }
-
-        .zenex-code .purple {
-          color: #b8a2ff;
-        }
-
-        .zenex-code .green {
-          color: #8fe6bb;
-        }
-
-        .zenex-code .blue {
-          color: #8cbcff;
-        }
-
-        .zenex-code .muted {
-          color: #707087;
-        }
-
-        .zenex-ai-card {
-          width: 75%;
-          margin: -20px 0 0 auto;
+        .zenex-robot-container {
           position: relative;
           z-index: 2;
-          padding: 18px;
-          border-radius: 12px;
-          background: #11111b;
-          border: 1px solid #333044;
-          box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-        }
-
-        .zenex-ai-label {
-          color: #a8a0c9;
-          font-size: 10px;
-          margin-bottom: 10px;
-        }
-
-        .zenex-ai-title {
-          color: white;
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 10px;
-        }
-
-        .zenex-ai-status {
-          display: inline-flex;
+          display: flex;
+          justify-content: center;
           align-items: center;
-          gap: 7px;
-          color: #91e6ba;
-          font-size: 10px;
+          width: 100%;
+          max-width: 400px;
+          height: 340px;
         }
 
-        .zenex-status-dot {
-          width: 6px;
-          height: 6px;
+        .zenex-robot-orbit {
+          position: absolute;
+          width: 290px;
+          height: 290px;
+          border: 1px solid rgba(167,139,250,0.25);
           border-radius: 50%;
-          background: #91e6ba;
-          box-shadow: 0 0 8px #91e6ba;
+          box-shadow: 0 0 35px rgba(139,92,246,0.12);
         }
+
+        .zenex-robot-orbit::before {
+          content: "";
+          position: absolute;
+          width: 9px;
+          height: 9px;
+          background: #c4b5fd;
+          border-radius: 50%;
+          top: 30px;
+          right: 30px;
+          box-shadow: 0 0 15px #a78bfa;
+        }
+
+        .zenex-robot {
+          position: relative;
+          width: 185px;
+          height: 205px;
+          animation: zenexFloat 3s ease-in-out infinite;
+          filter: drop-shadow(0 0 25px rgba(167,139,250,0.35));
+        }
+
+        .zenex-robot-head {
+          position: absolute;
+          top: 15px;
+          left: 25px;
+          width: 135px;
+          height: 115px;
+          background: linear-gradient(145deg,#e9e2ff,#a78bfa 60%,#7651d5);
+          border: 4px solid #d8c9ff;
+          border-radius: 40px;
+          box-shadow: inset -8px -8px 15px rgba(50,20,100,0.2);
+        }
+
+        .zenex-robot-ear {
+          position: absolute;
+          width: 17px;
+          height: 40px;
+          top: 55px;
+          background: #a78bfa;
+          border-radius: 10px;
+          border: 2px solid #d8c9ff;
+        }
+
+        .zenex-robot-ear.left {
+          left: 10px;
+        }
+
+        .zenex-robot-ear.right {
+          right: 10px;
+        }
+
+        .zenex-robot-face {
+          position: absolute;
+          top: 30px;
+          left: 19px;
+          width: 90px;
+          height: 58px;
+          background: #17102b;
+          border-radius: 22px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+        }
+
+        .zenex-robot-eye {
+          width: 12px;
+          height: 16px;
+          background: #c4b5fd;
+          border-radius: 50%;
+          box-shadow: 0 0 12px #c4b5fd;
+        }
+
+        .zenex-robot-mouth {
+          position: absolute;
+          bottom: 12px;
+          left: 36px;
+          width: 18px;
+          height: 7px;
+          border-bottom: 3px solid #c4b5fd;
+          border-radius: 50%;
+        }
+
+        .zenex-robot-antenna {
+          position: absolute;
+          top: -10px;
+          left: 87px;
+          width: 4px;
+          height: 24px;
+          background: #c4b5fd;
+        }
+
+        .zenex-robot-antenna::after {
+          content: "";
+          position: absolute;
+          width: 12px;
+          height: 12px;
+          background: #c4b5fd;
+          border-radius: 50%;
+          top: -9px;
+          left: -4px;
+          box-shadow: 0 0 15px #a78bfa;
+        }
+
+        .zenex-robot-body {
+          position: absolute;
+          bottom: 0;
+          left: 45px;
+          width: 95px;
+          height: 75px;
+          background: linear-gradient(145deg,#c4b5fd,#8055e8);
+          border: 3px solid #d8c9ff;
+          border-radius: 25px 25px 30px 30px;
+        }
+
+        .zenex-robot-body::after {
+          content: "Z";
+          position: absolute;
+          top: 15px;
+          left: 30px;
+          font-size: 27px;
+          font-weight: 800;
+          color: white;
+        }
+
+        @keyframes zenexFloat {
+          0%,100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-12px);
+          }
+        }
+
+        .zenex-robot-spark {
+          position: absolute;
+          color: #c4b5fd;
+          font-size: 25px;
+          animation: zenexPulse 2s infinite alternate;
+        }
+
+        .zenex-robot-spark.one {
+          top: 40px;
+          left: 45px;
+        }
+
+        .zenex-robot-spark.two {
+          bottom: 45px;
+          right: 45px;
+        }
+
+        @keyframes zenexPulse {
+          from {
+            opacity: 0.3;
+            transform: scale(0.8);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1.2);
+          }
+        }
+
+        /* HERO CONTENT */
 
         .zenex-hero-content {
           text-align: center;
           max-width: 430px;
-          margin-top: 35px;
+          margin-top: 15px;
           position: relative;
           z-index: 1;
         }
 
         .zenex-hero-title {
           color: #f4f1ff;
-          font-size: 25px;
+          font-size: 27px;
           font-weight: 600;
           line-height: 1.4;
           margin-bottom: 12px;
-          letter-spacing: -0.7px;
         }
 
         .zenex-hero-title span {
-          background: linear-gradient(90deg,#c7b8ff,#8d79ff);
+          background: linear-gradient(90deg,#c4b5fd,#8b5cf6);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
         }
 
         .zenex-hero-description {
-          color: #9695ad;
+          color: #a1a1aa;
           font-size: 12px;
           line-height: 1.8;
         }
@@ -523,9 +671,9 @@ export default function Login() {
         }
 
         .zenex-feature-pill {
-          border: 1px solid #29283c;
-          color: #b6b2d1;
-          background: #101010;
+          border: 1px solid #39304e;
+          color: #c4b5fd;
+          background: #111019;
           padding: 7px 11px;
           border-radius: 25px;
           font-size: 10px;
@@ -541,30 +689,24 @@ export default function Login() {
           .zenex-login-right {
             padding: 25px;
           }
-
-          .zenex-code {
-            font-size: 10px;
-          }
         }
 
         @media (max-width: 700px) {
           .zenex-login-page {
             padding: 0;
-            height: 100vh;
-            min-height: 0;
-            overflow-y: auto;
           }
 
           .zenex-login-card {
             grid-template-columns: 1fr;
-            height: auto;
-            min-height: 100vh;
+            height: 100vh;
+            max-height: none;
             border-radius: 0;
             border: none;
           }
 
           .zenex-login-left {
-            padding: 30px 24px;
+            padding: 35px 24px;
+            overflow-y: auto;
           }
 
           .zenex-login-right {
@@ -572,45 +714,75 @@ export default function Login() {
           }
         }
 
-        /* SHORT LAPTOP HEIGHT */
-
-        @media (min-width: 701px) and (max-height: 720px) {
-          .zenex-login-left {
-            padding-top: 20px;
-            padding-bottom: 20px;
+        @media (max-width: 420px) {
+          .zenex-social-row {
+            gap: 7px;
           }
 
+          .zenex-social-button {
+            font-size: 10px;
+            gap: 5px;
+          }
+
+          .zenex-submit {
+            width: 85%;
+          }
+        }
+
+        /* Fit the login page on shorter screens without scrolling */
+        @media (max-height: 820px) {
           .zenex-brand {
-            margin-bottom: 20px;
-          }
-
-          .zenex-form-subtitle {
             margin-bottom: 18px;
           }
 
+          .zenex-form-heading {
+            font-size: 26px;
+            margin-bottom: 6px;
+          }
+
+          .zenex-form-subtitle {
+            margin-bottom: 16px;
+            line-height: 1.5;
+          }
+
           .zenex-field {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
+          }
+
+          .zenex-field label {
+            margin-bottom: 6px;
+          }
+
+          .zenex-input {
+            height: 40px;
+          }
+
+          .zenex-forgot {
+            margin: -2px 0 12px;
+          }
+
+          .zenex-submit {
+            height: 38px;
           }
 
           .zenex-divider {
             margin: 14px 0;
           }
 
+          .zenex-social-button {
+            height: 40px;
+          }
+
           .zenex-register {
-            margin-top: 10px;
+            margin-top: 14px;
           }
 
           .zenex-terms {
             margin-top: 12px;
           }
 
-          .zenex-hero-content {
-            margin-top: 22px;
-          }
-
-          .zenex-code {
-            padding: 15px;
-            line-height: 1.7;
+          .zenex-robot-container {
+            transform: scale(0.85);
           }
         }
 
@@ -641,7 +813,7 @@ export default function Login() {
           </p>
 
           {error && (
-            <div className="zenex-error">
+            <div className="zenex-error" role="alert">
               {error}
             </div>
           )}
@@ -667,6 +839,7 @@ export default function Login() {
               <label>Password</label>
 
               <div className="zenex-password-wrapper">
+
                 <input
                   className="zenex-input"
                   type={showPassword ? "text" : "password"}
@@ -685,6 +858,7 @@ export default function Login() {
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
+
               </div>
             </div>
 
@@ -699,7 +873,7 @@ export default function Login() {
               className="zenex-submit"
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign in to ZENEX"}
+              {loading ? "Signing in..." : "Sign In"}
             </button>
 
           </form>
@@ -708,39 +882,45 @@ export default function Login() {
             OR CONTINUE WITH
           </div>
 
-          {/* GOOGLE LOGIN */}
+          {/* GOOGLE AND MICROSOFT SAME ROW */}
 
-          <button
-            type="button"
-            className="zenex-social-button"
-            onClick={handleGoogleLogin}
-          >
-            <svg viewBox="0 0 48 48">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.47-4.78 7.17l7.73 6C44.4 37.18 46.98 31.37 46.98 24.55z"/>
-              <path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.77 24c0-1.59.27-3.13.77-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.91.94 7.62 2.56 10.78l7.98-6.19z"/>
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.81l-7.73-6C30.03 38.08 27.22 39 24 39c-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 43.62 14.62 48 24 48z"/>
-            </svg>
+          <div className="zenex-social-row">
 
-            Continue with Google
-          </button>
+            <button
+              type="button"
+              className="zenex-social-button"
+              onClick={handleGoogleLogin}
+            >
 
-          {/* MICROSOFT LOGIN */}
+              <svg viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.47-4.78 7.17l7.73 6C44.4 37.18 46.98 31.37 46.98 24.55z"/>
+                <path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.77 24c0-1.59.27-3.13.77-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.91.94 7.62 2.56 10.78l7.98-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.81l-7.73-6C30.03 38.08 27.22 39 24 39c-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 43.62 14.62 48 24 48z"/>
+              </svg>
 
-          <button
-            type="button"
-            className="zenex-social-button"
-            onClick={handleMicrosoftLogin}
-          >
-            <svg viewBox="0 0 24 24">
-              <path fill="#F35325" d="M1 1h10v10H1z"/>
-              <path fill="#81BC06" d="M13 1h10v10H13z"/>
-              <path fill="#05A6F0" d="M1 13h10v10H1z"/>
-              <path fill="#FFBA08" d="M13 13h10v10H13z"/>
-            </svg>
+              Google
 
-            Continue with Microsoft
-          </button>
+            </button>
+
+            <button
+              type="button"
+              className="zenex-social-button"
+              onClick={handleMicrosoftLogin}
+            >
+
+              <svg viewBox="0 0 24 24">
+                <path fill="#F35325" d="M1 1h10v10H1z"/>
+                <path fill="#81BC06" d="M13 1h10v10H13z"/>
+                <path fill="#05A6F0" d="M1 13h10v10H1z"/>
+                <path fill="#FFBA08" d="M13 13h10v10H13z"/>
+              </svg>
+
+              Microsoft
+
+            </button>
+
+          </div>
 
           <div className="zenex-register">
             Don't have an account?{" "}
@@ -759,78 +939,40 @@ export default function Login() {
 
         </div>
 
-        {/* RIGHT VISUAL SECTION */}
+        {/* RIGHT ROBOT SECTION */}
 
         <div className="zenex-login-right">
 
           <div className="zenex-glow"></div>
 
-          <div className="zenex-visual-top">
+          <div className="zenex-robot-container">
 
-            <div className="zenex-code-window">
+            <div className="zenex-robot-orbit"></div>
 
-              <div className="zenex-window-header">
-                <div className="zenex-dot"></div>
-                <div className="zenex-dot"></div>
-                <div className="zenex-dot"></div>
+            <span className="zenex-robot-spark one">✦</span>
+            <span className="zenex-robot-spark two">✧</span>
 
-                <div className="zenex-window-title">
-                  zenex_ai.py
+            <div className="zenex-robot">
+
+              <div className="zenex-robot-ear left"></div>
+              <div className="zenex-robot-ear right"></div>
+
+              <div className="zenex-robot-antenna"></div>
+
+              <div className="zenex-robot-head">
+
+                <div className="zenex-robot-face">
+
+                  <div className="zenex-robot-eye"></div>
+                  <div className="zenex-robot-eye"></div>
+
+                  <div className="zenex-robot-mouth"></div>
+
                 </div>
+
               </div>
 
-              <div className="zenex-code">
-                <div>
-                  <span className="purple">class</span>{" "}
-                  <span className="blue">ZenexAI</span>:
-                </div>
-
-                <div>
-                  &nbsp;&nbsp;<span className="purple">def</span>{" "}
-                  <span className="green">generate_code</span>(self):
-                </div>
-
-                <div>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <span className="muted"># Intelligent code generation</span>
-                </div>
-
-                <div>
-                  &nbsp;&nbsp;&nbsp;&nbsp;
-                  <span className="purple">return</span>{" "}
-                  <span className="green">"Build something amazing"</span>
-                </div>
-
-                <br />
-
-                <div>
-                  <span className="purple">def</span>{" "}
-                  <span className="blue">solve_problem</span>():
-                </div>
-
-                <div>
-                  &nbsp;&nbsp;
-                  <span className="purple">return</span>{" "}
-                  <span className="green">zenex.optimize()</span>
-                </div>
-              </div>
-
-            </div>
-
-            <div className="zenex-ai-card">
-
-              <div className="zenex-ai-label">
-                ZENEX AI ENGINE
-              </div>
-
-              <div className="zenex-ai-title">
-                Your intelligent coding partner.
-              </div>
-
-              <div className="zenex-ai-status">
-                <span className="zenex-status-dot"></span>
-                Ready to build
-              </div>
+              <div className="zenex-robot-body"></div>
 
             </div>
 
