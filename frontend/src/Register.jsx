@@ -1,29 +1,24 @@
 import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./auth.css";
 
-export default function ResetPassword() {
+export default function Register() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  const token = searchParams.get("token");
-
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
+
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleResetPassword = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
-    setMessage("");
     setError("");
-
-    if (!token) {
-      setError("Invalid or missing reset link.");
-      return;
-    }
+    setMessage("");
 
     if (password.length < 8) {
       setError("Password must contain at least 8 characters.");
@@ -39,15 +34,16 @@ export default function ResetPassword() {
 
     try {
       const response = await fetch(
-        "http://localhost:8000/auth/reset-password",
+        "http://localhost:8000/auth/register",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            token: token,
-            new_password: password,
+            username: username.trim(),
+            email: email.trim(),
+            password: password,
           }),
         }
       );
@@ -58,20 +54,22 @@ export default function ResetPassword() {
         throw new Error(
           typeof data.detail === "string"
             ? data.detail
-            : "Unable to reset password."
+            : "Registration failed."
         );
       }
 
       setMessage(
-        data.message || "Password reset successfully!"
+        data.message || "Account created successfully!"
       );
 
+      setUsername("");
+      setEmail("");
       setPassword("");
       setConfirmPassword("");
 
       setTimeout(() => {
         navigate("/login");
-      }, 2000);
+      }, 1500);
 
     } catch (err) {
       setError(err.message || "Something went wrong.");
@@ -81,46 +79,92 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="reset-page">
+    <div className="auth-page">
 
-      <div className="reset-card">
+      <div className="auth-card">
 
-        {/* BRAND */}
-        <div className="reset-brand">
-          <h1>ZENEX</h1>
-          <span>AI CODING AGENT</span>
+        {/* ZENEX BRAND */}
+        <div className="auth-brand">
+          <div className="auth-logo">Z</div>
+
+          <div className="auth-brand-name">
+            ZEN<span>EX</span>
+          </div>
         </div>
 
         {/* TITLE */}
-        <h2>Reset Password</h2>
+        <h1 className="auth-title">
+          Create account
+        </h1>
 
-        <p className="reset-subtitle">
-          Create a new password for your account.
+        <p className="auth-subtitle">
+          Create your account to get started with ZENEX AI.
         </p>
 
         {/* SUCCESS MESSAGE */}
         {message && (
-          <div className="reset-success">
+          <div className="auth-alert success">
             {message}
           </div>
         )}
 
         {/* ERROR MESSAGE */}
         {error && (
-          <div className="reset-error">
+          <div className="auth-alert error">
             {error}
           </div>
         )}
 
-        {/* PASSWORD FORM */}
-        <form onSubmit={handleResetPassword}>
+        {/* REGISTER FORM */}
+        <form onSubmit={handleRegister}>
 
-          <div className="reset-input-group">
-            <label>New Password</label>
+          {/* USERNAME */}
+          <div className="auth-field">
+            <label htmlFor="register-username">
+              Username
+            </label>
 
             <input
+              id="register-username"
+              className="auth-input"
+              type="text"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              autoComplete="username"
+            />
+          </div>
+
+          {/* EMAIL */}
+          <div className="auth-field">
+            <label htmlFor="register-email">
+              Email Address
+            </label>
+
+            <input
+              id="register-email"
+              className="auth-input"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          {/* PASSWORD */}
+          <div className="auth-field">
+            <label htmlFor="register-password">
+              Password
+            </label>
+
+            <input
+              id="register-password"
+              className="auth-input"
               type="password"
-              placeholder="Enter new password"
+              placeholder="Create a password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -129,12 +173,17 @@ export default function ResetPassword() {
             />
           </div>
 
-          <div className="reset-input-group">
-            <label>Confirm Password</label>
+          {/* CONFIRM PASSWORD */}
+          <div className="auth-field">
+            <label htmlFor="register-confirm-password">
+              Confirm Password
+            </label>
 
             <input
+              id="register-confirm-password"
+              className="auth-input"
               type="password"
-              placeholder="Confirm new password"
+              placeholder="Confirm your password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
@@ -143,26 +192,31 @@ export default function ResetPassword() {
             />
           </div>
 
+          {/* CREATE ACCOUNT BUTTON */}
           <button
             type="submit"
-            className="reset-button"
+            className="auth-button"
             disabled={loading}
           >
             {loading
-              ? "Resetting Password..."
-              : "Reset Password"}
+              ? "Creating Account..."
+              : "Create Account"}
           </button>
 
         </form>
 
-        {/* BACK TO LOGIN */}
-        <button
-          type="button"
-          className="reset-back-button"
-          onClick={() => navigate("/login")}
-        >
-          Back to Login
-        </button>
+        {/* LOGIN LINK */}
+        <div className="auth-footer">
+          <span>Already have an account?</span>
+
+          <button
+            type="button"
+            className="auth-link"
+            onClick={() => navigate("/login")}
+          >
+            Login
+          </button>
+        </div>
 
       </div>
     </div>

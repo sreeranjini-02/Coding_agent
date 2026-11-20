@@ -41,7 +41,7 @@ export default function ForgotPassword() {
 
       setMessage(
         data.message ||
-        "If your account exists, a password reset email has been sent."
+          "If your account exists, a password reset email has been sent."
       );
 
     } catch (err) {
@@ -55,26 +55,46 @@ export default function ForgotPassword() {
     <div className="auth-page">
       <div className="auth-card">
 
+        {/* ZENEX BRAND */}
         <div className="auth-brand">
           <div className="auth-logo">Z</div>
+
           <div className="auth-brand-name">
             ZEN<span>EX</span>
           </div>
         </div>
 
-        <h1 className="auth-title">Forgot password?</h1>
+        {/* TITLE */}
+        <h1 className="auth-title">
+          Forgot password?
+        </h1>
+
         <p className="auth-subtitle">
           Enter your email to reset your password.
         </p>
 
-        {message && <div className="auth-alert success">{message}</div>}
+        {/* SUCCESS MESSAGE */}
+        {message && (
+          <div className="auth-alert success">
+            {message}
+          </div>
+        )}
 
-        {error && <div className="auth-alert error">{error}</div>}
+        {/* ERROR MESSAGE */}
+        {error && (
+          <div className="auth-alert error">
+            {error}
+          </div>
+        )}
 
+        {/* EMAIL FORM */}
         <form onSubmit={handleForgotPassword}>
 
           <div className="auth-field">
-            <label htmlFor="forgot-email">Email address</label>
+            <label htmlFor="forgot-email">
+              Email address
+            </label>
+
             <input
               id="forgot-email"
               className="auth-input"
@@ -86,6 +106,7 @@ export default function ForgotPassword() {
             />
           </div>
 
+          {/* SEND RESET LINK */}
           <button
             type="submit"
             className="auth-button"
@@ -96,9 +117,10 @@ export default function ForgotPassword() {
 
         </form>
 
+        {/* BACK TO LOGIN */}
         <button
           type="button"
-          className="auth-back"
+          className="auth-back-button"
           onClick={() => navigate("/login")}
         >
           ← Back to Login

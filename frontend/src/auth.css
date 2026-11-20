@@ -1,117 +1,141 @@
-/* ==================================================
-   RESET PASSWORD PAGE
-   Separate styles to prevent conflicts with Register
-================================================== */
+/* =========================================================
+   ZENEX AUTH THEME
+   Shared styling for Login, Register, Forgot & Reset Password
+========================================================= */
 
-.reset-page {
-  width: 100%;
-  min-height: 100vh;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  padding: 20px;
-
-  background: #000000;
-  color: #ffffff;
-
+* {
   box-sizing: border-box;
 }
 
-.reset-card {
+.auth-page {
+  min-height: 100vh;
   width: 100%;
-  max-width: 420px;
 
-  padding: 40px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: #050505;
+  color: #ffffff;
+
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+/* =========================================================
+   CARD
+========================================================= */
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+
+  padding: 40px;
 
   background: #101010;
 
-  border: 1px solid #292929;
-  border-radius: 18px;
+  border: 1px solid #252525;
+  border-radius: 20px;
 
-  box-shadow: 0 0 35px rgba(255, 255, 255, 0.03);
-
-  box-sizing: border-box;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
-/* BRAND */
+/* =========================================================
+   BRAND
+========================================================= */
 
-.reset-brand {
-  text-align: center;
-  margin-bottom: 32px;
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  margin-bottom: 30px;
 }
 
-.reset-brand h1 {
-  margin: 0;
+.auth-logo {
+  width: 42px;
+  height: 42px;
 
-  font-size: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #ffffff;
+  color: #000000;
+
+  border-radius: 12px;
+
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: 5px;
+}
+
+.auth-brand-name {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 2px;
 
   color: #ffffff;
 }
 
-.reset-brand span {
-  display: block;
-
-  margin-top: 6px;
-
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 3px;
-
-  color: #888888;
+.auth-brand-name span {
+  color: #999999;
 }
 
-/* TITLE */
+/* =========================================================
+   HEADINGS
+========================================================= */
 
-.reset-card h2 {
-  text-align: center;
-
+.auth-title {
   margin: 0 0 10px;
 
-  font-size: 25px;
+  text-align: center;
+
+  font-size: 28px;
   font-weight: 700;
 
   color: #ffffff;
 }
 
-.reset-subtitle {
+.auth-subtitle {
+  margin: 0 0 28px;
+
   text-align: center;
 
-  font-size: 14px;
   color: #999999;
 
-  margin-bottom: 28px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
-/* INPUTS */
+/* =========================================================
+   FORM FIELDS
+========================================================= */
 
-.reset-input-group {
+.auth-field {
   display: flex;
   flex-direction: column;
 
   margin-bottom: 20px;
 }
 
-.reset-input-group label {
+.auth-field label {
+  margin-bottom: 9px;
+
+  color: #e5e5e5;
+
   font-size: 13px;
   font-weight: 500;
-
-  margin-bottom: 8px;
-
-  color: #dddddd;
 }
 
-.reset-input-group input {
+.auth-input {
   width: 100%;
   height: 48px;
 
   padding: 0 14px;
 
-  background: #181818;
+  background: #191919;
   color: #ffffff;
 
   border: 1px solid #333333;
@@ -121,10 +145,286 @@
 
   font-size: 14px;
 
-  box-sizing: border-box;
+  transition: 0.2s ease;
+}
 
-  transition: border-color 0.2s ease,
-              box-shadow 0.2s ease;
+.auth-input::placeholder {
+  color: #777777;
+}
+
+.auth-input:focus {
+  border-color: #777777;
+  background: #1c1c1c;
+
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+}
+
+/* =========================================================
+   MAIN BUTTON
+========================================================= */
+
+.auth-button {
+  width: 100%;
+  height: 48px;
+
+  margin-top: 8px;
+
+  background: #ffffff;
+  color: #000000;
+
+  border: none;
+  border-radius: 9px;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.auth-button:hover:not(:disabled) {
+  background: #e8e8e8;
+
+  transform: translateY(-1px);
+}
+
+.auth-button:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.auth-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   ALERTS
+========================================================= */
+
+.auth-alert {
+  padding: 12px 14px;
+
+  margin-bottom: 20px;
+
+  border-radius: 9px;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-alert.success {
+  background: rgba(34, 197, 94, 0.08);
+
+  border: 1px solid rgba(34, 197, 94, 0.3);
+
+  color: #4ade80;
+}
+
+.auth-alert.error {
+  background: rgba(239, 68, 68, 0.08);
+
+  border: 1px solid rgba(239, 68, 68, 0.3);
+
+  color: #f87171;
+}
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.auth-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  margin-top: 24px;
+
+  color: #999999;
+  font-size: 13px;
+}
+
+.auth-link {
+  padding: 0;
+
+  background: transparent;
+  color: #ffffff;
+
+  border: none;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+/* =========================================================
+   BACK TO LOGIN BUTTON
+========================================================= */
+
+.auth-back-button {
+  width: 100%;
+  height: 44px;
+
+  margin-top: 12px;
+  padding: 0 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #101010;
+  color: #a3a3a3;
+
+  border: 1px solid #303030;
+  border-radius: 9px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease,
+              color 0.2s ease,
+              border-color 0.2s ease;
+}
+
+.auth-back-button:hover {
+  background: #1a1a1a;
+  color: #ffffff;
+  border-color: #555555;
+}
+
+.auth-back-button:focus-visible {
+  outline: 2px solid #777777;
+  outline-offset: 2px;
+}
+
+/* =========================================================
+   RESET PASSWORD PAGE
+========================================================= */
+
+.reset-page {
+  min-height: 100vh;
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: #050505;
+  color: #ffffff;
+
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+.reset-card {
+  width: 100%;
+  max-width: 440px;
+
+  padding: 40px;
+
+  background: #101010;
+
+  border: 1px solid #252525;
+  border-radius: 20px;
+
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* RESET BRAND */
+
+.reset-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  margin-bottom: 30px;
+}
+
+.reset-brand h1 {
+  margin: 0;
+
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 2px;
+
+  color: #ffffff;
+}
+
+.reset-brand span {
+  color: #999999;
+}
+
+/* RESET TITLE */
+
+.reset-card h2 {
+  margin: 0 0 10px;
+
+  text-align: center;
+
+  font-size: 28px;
+  font-weight: 700;
+
+  color: #ffffff;
+}
+
+.reset-subtitle {
+  margin: 0 0 28px;
+
+  text-align: center;
+
+  color: #999999;
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* RESET INPUTS */
+
+.reset-input-group {
+  display: flex;
+  flex-direction: column;
+
+  margin-bottom: 20px;
+}
+
+.reset-input-group label {
+  margin-bottom: 9px;
+
+  color: #e5e5e5;
+
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.reset-input-group input {
+  width: 100%;
+  height: 48px;
+
+  padding: 0 14px;
+
+  background: #191919;
+  color: #ffffff;
+
+  border: 1px solid #333333;
+  border-radius: 9px;
+
+  outline: none;
+
+  font-size: 14px;
+
+  transition: 0.2s ease;
 }
 
 .reset-input-group input::placeholder {
@@ -133,8 +433,9 @@
 
 .reset-input-group input:focus {
   border-color: #777777;
+  background: #1c1c1c;
 
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
 }
 
 /* RESET BUTTON */
@@ -156,13 +457,17 @@
 
   cursor: pointer;
 
-  transition: background 0.2s ease,
-              transform 0.2s ease;
+  transition: 0.2s ease;
 }
 
 .reset-button:hover:not(:disabled) {
-  background: #dddddd;
+  background: #e8e8e8;
+
   transform: translateY(-1px);
+}
+
+.reset-button:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
 .reset-button:disabled {
@@ -170,31 +475,36 @@
   cursor: not-allowed;
 }
 
-/* BACK TO LOGIN */
+/* RESET BACK BUTTON */
 
 .reset-back-button {
   width: 100%;
+  height: 44px;
 
-  margin-top: 18px;
-  padding: 12px;
+  margin-top: 12px;
+  padding: 0 16px;
 
-  background: transparent;
-  color: #aaaaaa;
+  background: #101010;
+  color: #a3a3a3;
 
-  border: none;
+  border: 1px solid #303030;
+  border-radius: 9px;
 
   font-size: 13px;
+  font-weight: 500;
 
   cursor: pointer;
 
-  transition: color 0.2s ease;
+  transition: 0.2s ease;
 }
 
 .reset-back-button:hover {
   color: #ffffff;
+  background: #1a1a1a;
+  border-color: #555555;
 }
 
-/* SUCCESS MESSAGE */
+/* RESET SUCCESS */
 
 .reset-success {
   padding: 12px 14px;
@@ -202,8 +512,8 @@
   margin-bottom: 20px;
 
   background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.3);
 
+  border: 1px solid rgba(34, 197, 94, 0.3);
   border-radius: 9px;
 
   color: #4ade80;
@@ -212,7 +522,7 @@
   line-height: 1.5;
 }
 
-/* ERROR MESSAGE */
+/* RESET ERROR */
 
 .reset-error {
   padding: 12px 14px;
@@ -220,8 +530,8 @@
   margin-bottom: 20px;
 
   background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.3);
 
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 9px;
 
   color: #f87171;
@@ -230,24 +540,37 @@
   line-height: 1.5;
 }
 
-/* MOBILE RESPONSIVE */
+/* =========================================================
+   RESPONSIVE DESIGN
+========================================================= */
 
 @media (max-width: 480px) {
-
+  .auth-page,
   .reset-page {
-    padding: 15px;
+    padding: 16px;
   }
 
+  .auth-card,
   .reset-card {
     padding: 30px 22px;
+
+    border-radius: 16px;
   }
 
-  .reset-brand h1 {
-    font-size: 30px;
-  }
-
+  .auth-title,
   .reset-card h2 {
-    font-size: 22px;
+    font-size: 24px;
   }
 
-}
+  .auth-brand-name,
+  .reset-brand h1 {
+    font-size: 23px;
+  }
+
+  .auth-logo {
+    width: 38px;
+    height: 38px;
+
+    font-size: 20px;
+  }
+}    
