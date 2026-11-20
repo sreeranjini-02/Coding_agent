@@ -1,7 +1,6 @@
 import os
 import uuid
 import csv
-import io
 
 from pathlib import Path
 from pypdf import PdfReader
@@ -19,6 +18,11 @@ client = genai.Client(
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 
+
+# --------------------------------------------------
+# SUPPORTED FILE TYPES
+# --------------------------------------------------
+
 SUPPORTED_EXTENSIONS = {
     ".pdf",
     ".docx",
@@ -33,16 +37,25 @@ SUPPORTED_EXTENSIONS = {
     ".xlsx"
 }
 
-# Temporary in-memory storage.
-# Each upload receives its own file ID.
+
+# --------------------------------------------------
+# TEMPORARY FILE STORE
+# --------------------------------------------------
 
 FILE_STORE = {}
 
 
+# --------------------------------------------------
+# TEXT EXTRACTION
+# --------------------------------------------------
+
 def extract_text(file_path):
 
-    extension = Path(file_path).suffix.lower()
+    file_path = Path(file_path)
 
+    extension = file_path.suffix.lower()
+
+    # PDF
     if extension == ".pdf":
 
         reader = PdfReader(file_path)
@@ -52,40 +65,74 @@ def extract_text(file_path):
             for page in reader.pages
         )
 
+    # DOCX
     elif extension == ".docx":
 
         document = Document(file_path)
 
-        return "\n".join(
-            paragraph.text
-            for paragraph in document.paragraphs
-        )
+        content = []
 
+        for paragraph in document.paragraphs:
+
+            if paragraph.text.strip():
+                content.append(paragraph.text)
+
+        # Extract table contents also
+        for table in document.tables:
+
+            for row in table.rows:
+
+                content.append(
+                    " | ".join(
+                        cell.text.strip()
+                        for cell in row.cells
+                    )
+                )
+
+        return "\n".join(content)
+
+    # EXCEL
     elif extension == ".xlsx":
 
         workbook = load_workbook(
             file_path,
-            data_only=True
+            data_only=True,
+            read_only=True
         )
 
         content = []
 
         for sheet in workbook.worksheets:
 
-            content.append(f"Sheet: {sheet.title}")
+            content.append(
+                f"\n===== SHEET: {sheet.title} ====="
+            )
 
-            for row in sheet.iter_rows(values_only=True):
+            for row in sheet.iter_rows(
+                values_only=True
+            ):
+
+                values = [
+                    str(cell) if cell is not None else ""
+                    for cell in row
+                ]
+
+                # Skip completely empty rows
+                if not any(value.strip() for value in values):
+                    continue
 
                 content.append(
-                    " | ".join(
-                        str(cell) if cell is not None else ""
-                        for cell in row
-                    )
+                    " | ".join(values)
                 )
+
+        workbook.close()
 
         return "\n".join(content)
 
+    # CSV
     elif extension == ".csv":
+
+        content = []
 
         with open(
             file_path,
@@ -94,8 +141,19 @@ def extract_text(file_path):
             errors="ignore"
         ) as file:
 
-            return file.read()
+            reader = csv.reader(file)
 
+            for row in reader:
+
+                if row:
+
+                    content.append(
+                        " | ".join(row)
+                    )
+
+        return "\n".join(content)
+
+    # TXT AND CODE FILES
     else:
 
         with open(
@@ -108,7 +166,15 @@ def extract_text(file_path):
             return file.read()
 
 
-def split_text(text, chunk_size=1000, overlap=150):
+# --------------------------------------------------
+# TEXT CHUNKING
+# --------------------------------------------------
+
+def split_text(
+    text,
+    chunk_size=1000,
+    overlap=150
+):
 
     chunks = []
 
@@ -128,11 +194,19 @@ def split_text(text, chunk_size=1000, overlap=150):
     return chunks
 
 
+# --------------------------------------------------
+# EMBEDDING GENERATION
+# --------------------------------------------------
+
 def generate_embeddings(texts):
 
     embeddings = []
 
-    for start in range(0, len(texts), 50):
+    for start in range(
+        0,
+        len(texts),
+        50
+    ):
 
         batch = texts[start:start + 50]
 
@@ -149,17 +223,30 @@ def generate_embeddings(texts):
     return embeddings
 
 
-def upload_and_index(file_path, filename):
+# --------------------------------------------------
+# UPLOAD AND INDEX
+# --------------------------------------------------
+
+def upload_and_index(
+    file_path,
+    filename
+):
 
     extension = Path(filename).suffix.lower()
 
     if extension not in SUPPORTED_EXTENSIONS:
-        raise ValueError("Unsupported file format.")
+
+        raise ValueError(
+            "Unsupported file format."
+        )
 
     content = extract_text(file_path)
 
     if not content.strip():
-        raise ValueError("No readable text found in file.")
+
+        raise ValueError(
+            "No readable text found in file."
+        )
 
     chunks = split_text(content)
 
@@ -170,7 +257,9 @@ def upload_and_index(file_path, filename):
     FILE_STORE[file_id] = {
         "filename": filename,
         "chunks": chunks,
-        "embeddings": embeddings
+        "embeddings": embeddings,
+        "full_text": content,
+        "extension": extension
     }
 
     return {
@@ -180,7 +269,46 @@ def upload_and_index(file_path, filename):
     }
 
 
-def retrieve_context(question, file_ids, top_k=4):
+# --------------------------------------------------
+# GET FULL FILE CONTENT
+# --------------------------------------------------
+
+def get_file_content(file_ids):
+
+    if not file_ids:
+        return ""
+
+    content_parts = []
+
+    for file_id in file_ids:
+
+        file_data = FILE_STORE.get(file_id)
+
+        if not file_data:
+            continue
+
+        content_parts.append(
+            f"""
+FILE NAME: {file_data['filename']}
+
+FILE CONTENT:
+
+{file_data.get('full_text', '')}
+"""
+        )
+
+    return "\n\n".join(content_parts)
+
+
+# --------------------------------------------------
+# RAG RETRIEVAL
+# --------------------------------------------------
+
+def retrieve_context(
+    question,
+    file_ids=None,
+    top_k=4
+):
 
     if not file_ids:
         return ""
@@ -191,11 +319,11 @@ def retrieve_context(question, file_ids, top_k=4):
 
     import numpy as np
 
-    question_vector = np.array(question_embedding)
+    question_vector = np.array(
+        question_embedding
+    )
 
     results = []
-
-    # Search ONLY the files attached to this question.
 
     for file_id in file_ids:
 
@@ -220,8 +348,10 @@ def retrieve_context(question, file_ids, top_k=4):
                 continue
 
             similarity = float(
-                np.dot(question_vector, vector)
-                / denominator
+                np.dot(
+                    question_vector,
+                    vector
+                ) / denominator
             )
 
             results.append({

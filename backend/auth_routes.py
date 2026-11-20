@@ -4,10 +4,13 @@ import hashlib
 import base64
 import logging
 import traceback
+import smtplib
 
 from pathlib import Path
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
+
+from email.message import EmailMessage
 
 from dotenv import load_dotenv
 
@@ -23,7 +26,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from jose import jwt, JWTError
 
@@ -89,6 +92,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 
 if not SECRET_KEY:
+
     raise RuntimeError(
         "JWT_SECRET_KEY is missing from .env"
     )
@@ -120,6 +124,35 @@ FRONTEND_LOGIN_URL = (
 FRONTEND_OAUTH_CALLBACK_URL = (
     f"{FRONTEND_URL}/oauth/callback"
 )
+
+
+# =====================================================
+# EMAIL CONFIGURATION
+# =====================================================
+
+SMTP_HOST = os.getenv(
+    "SMTP_HOST",
+    "smtp.gmail.com"
+).strip()
+
+SMTP_PORT = int(
+    os.getenv("SMTP_PORT", "587")
+)
+
+SMTP_USERNAME = os.getenv(
+    "SMTP_USERNAME",
+    ""
+).strip()
+
+SMTP_PASSWORD = os.getenv(
+    "SMTP_PASSWORD",
+    ""
+).strip()
+
+EMAIL_FROM = os.getenv(
+    "EMAIL_FROM",
+    SMTP_USERNAME
+).strip()
 
 
 # =====================================================
@@ -228,6 +261,122 @@ def verify_password(
         plain_password,
         hashed_password
     )
+
+
+# =====================================================
+# PASSWORD RESET TOKEN HELPERS
+# =====================================================
+
+def hash_reset_token(token: str) -> str:
+
+    return hashlib.sha256(
+        token.encode("utf-8")
+    ).hexdigest()
+
+
+# =====================================================
+# SEND PASSWORD RESET EMAIL
+# =====================================================
+
+def send_password_reset_email(
+    recipient_email: str,
+    reset_link: str
+):
+
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+
+        raise RuntimeError(
+            "SMTP configuration is missing in .env"
+        )
+
+    message = EmailMessage()
+
+    message["Subject"] = (
+        "ZENEX AI - Reset Your Password"
+    )
+
+    message["From"] = EMAIL_FROM
+
+    message["To"] = recipient_email
+
+    message.set_content(
+        f"""
+Hello,
+
+We received a request to reset your ZENEX AI account password.
+
+Click the following link to reset your password:
+
+{reset_link}
+
+This link expires in 30 minutes.
+
+If you did not request this password reset,
+you can safely ignore this email.
+
+Regards,
+ZENEX AI Team
+"""
+    )
+
+    message.add_alternative(
+        f"""
+        <html>
+            <body style="font-family:Arial,sans-serif;background:#0b0b0f;color:#ffffff;padding:30px;">
+
+                <div style="max-width:500px;margin:auto;background:#15151b;padding:30px;border-radius:15px;">
+
+                    <h2 style="color:#a78bfa;">ZENEX AI</h2>
+
+                    <h3>Reset Your Password</h3>
+
+                    <p>
+                        We received a request to reset your password.
+                    </p>
+
+                    <p>
+                        Click the button below to create a new password.
+                    </p>
+
+                    <a href="{reset_link}"
+                       style="display:inline-block;background:#7c3aed;color:white;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
+
+                        Reset Password
+
+                    </a>
+
+                    <p style="margin-top:25px;color:#aaaaaa;">
+                        This link expires in 30 minutes.
+                    </p>
+
+                    <p style="color:#aaaaaa;">
+                        If you did not request this, you can ignore this email.
+                    </p>
+
+                    <p>ZENEX AI Team</p>
+
+                </div>
+
+            </body>
+        </html>
+        """,
+        subtype="html"
+    )
+
+    with smtplib.SMTP(
+        SMTP_HOST,
+        SMTP_PORT,
+        timeout=30
+    ) as server:
+
+        server.starttls()
+
+        server.login(
+            SMTP_USERNAME,
+            SMTP_PASSWORD
+        )
+
+        server.send_message(message)
 
 
 # =====================================================
@@ -381,6 +530,18 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+
+    token: str
+
+    new_password: str
+
+
 # =====================================================
 # REGISTER
 # =====================================================
@@ -521,6 +682,354 @@ def get_me(
 
 
 # =====================================================
+# FORGOT PASSWORD
+# =====================================================
+
+@router.post("/forgot-password")
+def forgot_password(
+    data: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+
+    email = str(
+        data.email
+    ).strip().lower()
+
+    generic_message = (
+        "If your account exists, "
+        "a password reset link has been sent."
+    )
+
+    # -------------------------------------------------
+    # FIND USER
+    # -------------------------------------------------
+
+    user = db.execute(
+        text("""
+            SELECT id, email
+            FROM users
+            WHERE LOWER(email) = :email
+        """),
+        {
+            "email": email
+        }
+    ).fetchone()
+
+    # -------------------------------------------------
+    # ACCOUNT NOT FOUND
+    # -------------------------------------------------
+
+    if not user:
+
+        return {
+            "message": generic_message
+        }
+
+    # -------------------------------------------------
+    # GENERATE SECURE TOKEN
+    # -------------------------------------------------
+
+    reset_token = secrets.token_urlsafe(32)
+
+    token_hash = hash_reset_token(
+        reset_token
+    )
+
+    expires_at = (
+        datetime.utcnow()
+        + timedelta(minutes=30)
+    )
+
+    # -------------------------------------------------
+    # INVALIDATE OLD TOKENS
+    # -------------------------------------------------
+
+    db.execute(
+        text("""
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE user_id = :user_id
+              AND used_at IS NULL
+        """),
+        {
+            "user_id": user.id
+        }
+    )
+
+    # -------------------------------------------------
+    # STORE TOKEN HASH
+    # -------------------------------------------------
+
+    db.execute(
+        text("""
+            INSERT INTO password_reset_tokens (
+                user_id,
+                token_hash,
+                expires_at,
+                created_at
+            )
+            VALUES (
+                :user_id,
+                :token_hash,
+                :expires_at,
+                NOW()
+            )
+        """),
+        {
+            "user_id": user.id,
+            "token_hash": token_hash,
+            "expires_at": expires_at
+        }
+    )
+
+    db.commit()
+
+    # -------------------------------------------------
+    # CREATE RESET LINK
+    # -------------------------------------------------
+
+    reset_link = (
+        f"{FRONTEND_URL}/reset-password"
+        f"?token={reset_token}"
+    )
+
+    # -------------------------------------------------
+    # SEND EMAIL
+    # -------------------------------------------------
+
+    try:
+
+        send_password_reset_email(
+            recipient_email=user.email,
+            reset_link=reset_link
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Password reset email failed"
+        )
+
+        # Invalidate token if email fails.
+
+        db.execute(
+            text("""
+                UPDATE password_reset_tokens
+                SET used_at = NOW()
+                WHERE token_hash = :token_hash
+            """),
+            {
+                "token_hash": token_hash
+            }
+        )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to send reset email. Please try again later."
+        )
+
+    return {
+        "message": generic_message
+    }
+
+
+# =====================================================
+# VERIFY RESET TOKEN
+# =====================================================
+
+@router.get("/verify-reset-token")
+def verify_reset_token(
+    token: str,
+    db: Session = Depends(get_db)
+):
+
+    if not token:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Reset token is missing"
+        )
+
+    token_hash = hash_reset_token(
+        token
+    )
+
+    reset_record = db.execute(
+        text("""
+            SELECT id, user_id, expires_at, used_at
+            FROM password_reset_tokens
+            WHERE token_hash = :token_hash
+        """),
+        {
+            "token_hash": token_hash
+        }
+    ).fetchone()
+
+    if not reset_record:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid reset link"
+        )
+
+    if reset_record.used_at:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Reset link has already been used"
+        )
+
+    if reset_record.expires_at < datetime.utcnow():
+
+        raise HTTPException(
+            status_code=400,
+            detail="Reset link has expired"
+        )
+
+    return {
+        "valid": True,
+        "message": "Reset link is valid"
+    }
+
+
+# =====================================================
+# RESET PASSWORD
+# =====================================================
+
+@router.post("/reset-password")
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+
+    # -------------------------------------------------
+    # PASSWORD VALIDATION
+    # -------------------------------------------------
+
+    if len(data.new_password) < 8:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least 8 characters"
+        )
+
+    # -------------------------------------------------
+    # HASH TOKEN
+    # -------------------------------------------------
+
+    token_hash = hash_reset_token(
+        data.token
+    )
+
+    # -------------------------------------------------
+    # FIND RESET RECORD
+    # -------------------------------------------------
+
+    reset_record = db.execute(
+        text("""
+            SELECT id, user_id, expires_at, used_at
+            FROM password_reset_tokens
+            WHERE token_hash = :token_hash
+        """),
+        {
+            "token_hash": token_hash
+        }
+    ).fetchone()
+
+    if not reset_record:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid reset token"
+        )
+
+    # -------------------------------------------------
+    # CHECK USED TOKEN
+    # -------------------------------------------------
+
+    if reset_record.used_at:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Reset token has already been used"
+        )
+
+    # -------------------------------------------------
+    # CHECK TOKEN EXPIRATION
+    # -------------------------------------------------
+
+    if reset_record.expires_at < datetime.utcnow():
+
+        raise HTTPException(
+            status_code=400,
+            detail="Reset token has expired"
+        )
+
+    # -------------------------------------------------
+    # HASH NEW PASSWORD
+    # -------------------------------------------------
+
+    new_password_hash = hash_password(
+        data.new_password
+    )
+
+    # -------------------------------------------------
+    # UPDATE USER PASSWORD
+    # -------------------------------------------------
+
+    db.execute(
+        text("""
+            UPDATE users
+            SET password_hash = :password_hash
+            WHERE id = :user_id
+        """),
+        {
+            "password_hash": new_password_hash,
+            "user_id": reset_record.user_id
+        }
+    )
+
+    # -------------------------------------------------
+    # MARK TOKEN USED
+    # -------------------------------------------------
+
+    db.execute(
+        text("""
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE id = :token_id
+        """),
+        {
+            "token_id": reset_record.id
+        }
+    )
+
+    # -------------------------------------------------
+    # INVALIDATE REMAINING TOKENS
+    # -------------------------------------------------
+
+    db.execute(
+        text("""
+            UPDATE password_reset_tokens
+            SET used_at = NOW()
+            WHERE user_id = :user_id
+              AND used_at IS NULL
+        """),
+        {
+            "user_id": reset_record.user_id
+        }
+    )
+
+    db.commit()
+
+    return {
+        "message": "Password reset successfully"
+    }
+
+
+# =====================================================
 # GOOGLE LOGIN
 # =====================================================
 
@@ -541,9 +1050,6 @@ async def google_login(
         logger.info(
             "Starting Google OAuth"
         )
-
-        # IMPORTANT:
-        # Forces Google account selection every time.
 
         return await oauth.google.authorize_redirect(
             request,
@@ -581,19 +1087,11 @@ async def google_callback(
 
     try:
 
-        # -------------------------------------------------
-        # STEP 1: EXCHANGE AUTHORIZATION CODE
-        # -------------------------------------------------
-
         stage = "google_token_exchange"
 
         token = await oauth.google.authorize_access_token(
             request
         )
-
-        # -------------------------------------------------
-        # STEP 2: GET GOOGLE USER INFORMATION
-        # -------------------------------------------------
 
         stage = "google_user_info"
 
@@ -613,10 +1111,6 @@ async def google_callback(
                 "Google user information is missing"
             )
 
-        # -------------------------------------------------
-        # STEP 3: GET EMAIL
-        # -------------------------------------------------
-
         stage = "google_email"
 
         email = user_info.get(
@@ -628,8 +1122,6 @@ async def google_callback(
             raise Exception(
                 "Google email was not returned"
             )
-
-        # Only link accounts when Google confirms the email.
 
         if user_info.get("email_verified") is not True:
 
@@ -644,10 +1136,6 @@ async def google_callback(
             or email.split("@")[0]
         )
 
-        # -------------------------------------------------
-        # STEP 4: FIND EXISTING USER
-        # -------------------------------------------------
-
         stage = "google_database_lookup"
 
         user = db.execute(
@@ -660,10 +1148,6 @@ async def google_callback(
                 "email": email
             }
         ).fetchone()
-
-        # -------------------------------------------------
-        # STEP 5: CREATE USER IF NOT FOUND
-        # -------------------------------------------------
 
         if not user:
 
@@ -710,10 +1194,6 @@ async def google_callback(
                 "Google user could not be loaded from database"
             )
 
-        # -------------------------------------------------
-        # STEP 6: GENERATE ZENEX JWT
-        # -------------------------------------------------
-
         stage = "google_jwt_creation"
 
         zenex_token = create_access_token(
@@ -721,10 +1201,6 @@ async def google_callback(
                 "sub": str(user.id)
             }
         )
-
-        # -------------------------------------------------
-        # STEP 7: REDIRECT TO FRONTEND
-        # -------------------------------------------------
 
         stage = "google_frontend_redirect"
 
@@ -763,7 +1239,7 @@ async def google_callback(
         return RedirectResponse(
             url=(
                 f"{FRONTEND_LOGIN_URL}"
-                f"?error=google_auth_failed"
+                "?error=google_auth_failed"
                 f"&stage={stage}"
             ),
             status_code=302
@@ -814,29 +1290,13 @@ async def microsoft_login(
 
     try:
 
-        # -------------------------------------------------
-        # STEP 1: GENERATE PKCE
-        # -------------------------------------------------
-
         verifier, challenge = generate_pkce()
 
-        # -------------------------------------------------
-        # STEP 2: GENERATE STATE
-        # -------------------------------------------------
-
         state = secrets.token_urlsafe(32)
-
-        # -------------------------------------------------
-        # STEP 3: SAVE SESSION VALUES
-        # -------------------------------------------------
 
         request.session["microsoft_state"] = state
 
         request.session["microsoft_verifier"] = verifier
-
-        # -------------------------------------------------
-        # STEP 4: BUILD MICROSOFT AUTHORIZATION URL
-        # -------------------------------------------------
 
         params = {
             "client_id": MICROSOFT_CLIENT_ID,
@@ -895,7 +1355,7 @@ async def microsoft_callback(
     try:
 
         # -------------------------------------------------
-        # STEP 1: CHECK MICROSOFT ERROR
+        # MICROSOFT ERROR
         # -------------------------------------------------
 
         microsoft_error = request.query_params.get(
@@ -926,7 +1386,7 @@ async def microsoft_callback(
             )
 
         # -------------------------------------------------
-        # STEP 2: GET AUTHORIZATION CODE
+        # AUTHORIZATION CODE
         # -------------------------------------------------
 
         stage = "microsoft_authorization_code"
@@ -942,7 +1402,7 @@ async def microsoft_callback(
             )
 
         # -------------------------------------------------
-        # STEP 3: VALIDATE STATE
+        # STATE VALIDATION
         # -------------------------------------------------
 
         stage = "microsoft_state_validation"
@@ -971,7 +1431,7 @@ async def microsoft_callback(
             )
 
         # -------------------------------------------------
-        # STEP 4: GET PKCE VERIFIER
+        # PKCE VERIFIER
         # -------------------------------------------------
 
         stage = "microsoft_pkce_verifier"
@@ -987,7 +1447,7 @@ async def microsoft_callback(
             )
 
         # -------------------------------------------------
-        # STEP 5: EXCHANGE AUTHORIZATION CODE FOR TOKEN
+        # TOKEN EXCHANGE
         # -------------------------------------------------
 
         stage = "microsoft_token_exchange"
@@ -1018,9 +1478,8 @@ async def microsoft_callback(
 
         if token_response.status_code != 200:
 
-            # Do not log token contents or secrets.
-
             try:
+
                 error_data = token_response.json()
 
                 logger.error(
@@ -1057,7 +1516,7 @@ async def microsoft_callback(
             )
 
         # -------------------------------------------------
-        # STEP 6: GET MICROSOFT USER INFORMATION
+        # MICROSOFT USER INFO
         # -------------------------------------------------
 
         stage = "microsoft_user_info"
@@ -1089,7 +1548,7 @@ async def microsoft_callback(
         microsoft_user = graph_response.json()
 
         # -------------------------------------------------
-        # STEP 7: GET EMAIL
+        # EMAIL
         # -------------------------------------------------
 
         stage = "microsoft_email"
@@ -1113,7 +1572,7 @@ async def microsoft_callback(
         )
 
         # -------------------------------------------------
-        # STEP 8: FIND EXISTING USER
+        # DATABASE LOOKUP
         # -------------------------------------------------
 
         stage = "microsoft_database_user"
@@ -1130,7 +1589,7 @@ async def microsoft_callback(
         ).fetchone()
 
         # -------------------------------------------------
-        # STEP 9: CREATE USER IF NOT FOUND
+        # CREATE USER
         # -------------------------------------------------
 
         if not user:
@@ -1177,7 +1636,7 @@ async def microsoft_callback(
             )
 
         # -------------------------------------------------
-        # STEP 10: CREATE ZENEX JWT
+        # JWT
         # -------------------------------------------------
 
         stage = "microsoft_jwt_creation"
@@ -1189,7 +1648,7 @@ async def microsoft_callback(
         )
 
         # -------------------------------------------------
-        # STEP 11: CLEAR MICROSOFT SESSION
+        # CLEAR SESSION
         # -------------------------------------------------
 
         request.session.pop(
@@ -1203,7 +1662,7 @@ async def microsoft_callback(
         )
 
         # -------------------------------------------------
-        # STEP 12: FRONTEND REDIRECT
+        # REDIRECT
         # -------------------------------------------------
 
         stage = "microsoft_frontend_redirect"
@@ -1239,8 +1698,6 @@ async def microsoft_callback(
         logger.error(
             traceback.format_exc()
         )
-
-        # Clear session values on failure.
 
         request.session.pop(
             "microsoft_state",

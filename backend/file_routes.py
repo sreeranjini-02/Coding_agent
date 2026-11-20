@@ -115,7 +115,7 @@ def store_uploaded_file(
     # Validate file extension
     # -------------------------------------------------
 
-    if extension not in ALLOWED_EXTENSIONS:
+    if extension not in SUPPORTED_EXTENSIONS:
 
         raise HTTPException(
             status_code=400,
@@ -211,14 +211,15 @@ def store_uploaded_file(
         # =================================================
         # STEP 3: RETURN FILE INFORMATION
         # =================================================
-
         return {
             "file_id": result.lastrowid,
             "filename": filename,
             "stored_filename": stored_filename,
             "file_type": extension,
-            "file_size": len(file_content)
+            "file_size": len(file_content),
+            "file_path": str(file_path)
         }
+       
 
     except Exception:
 

@@ -51,10 +51,10 @@ from backend.file_routes import get_db
 from backend.chat_routes import router as chat_router
 
 # Coding agent
-from coding_agent import (
-    run_coding_agent,
-    prepare_agent_prompt
-)
+from coding_agent import prepare_agent_prompt
+
+# File extraction
+from rag_engine import extract_text, SUPPORTED_EXTENSIONS
 
 # Gemini streaming
 from llm_service import generate_response_stream
@@ -248,9 +248,36 @@ async def coding_agent_api(
                 file.filename or "uploaded_file"
             )
 
+            extension = Path(filename).suffix.lower()
+
+            # ---------------------------------------------
+            # VALIDATE FILE TYPE
+            # ---------------------------------------------
+
+            if extension not in SUPPORTED_EXTENSIONS:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file format: {extension}"
+                )
+
+            # ---------------------------------------------
+            # READ FILE
+            # ---------------------------------------------
+
             file_content = await file.read()
 
-            # Store uploaded file
+            if not file_content:
+
+                raise HTTPException(
+                    status_code=400,
+                    detail="Uploaded file is empty."
+                )
+
+            # ---------------------------------------------
+            # SAVE FILE
+            # ---------------------------------------------
+
             file_data = store_uploaded_file(
                 user_id=user_id,
                 filename=filename,
@@ -268,50 +295,48 @@ async def coding_agent_api(
                 file_data["stored_filename"]
             )
 
-            # =================================================
-            # READ TEXT-BASED FILES
-            # =================================================
+            # ---------------------------------------------
+            # TEMPORARY FILE FOR EXTRACTION
+            # ---------------------------------------------
 
-            supported_text_extensions = {
-                ".txt",
-                ".py",
-                ".java",
-                ".js",
-                ".jsx",
-                ".ts",
-                ".tsx",
-                ".html",
-                ".css",
-                ".json",
-                ".sql",
-                ".md",
-                ".csv"
-            }
+            stored_path = Path(
+                file_data["file_path"]
+            )
 
-            extension = os.path.splitext(
-                filename
-            )[1].lower()
+            if not stored_path.exists():
 
-            if extension in supported_text_extensions:
-
-                uploaded_context = file_content.decode(
-                    "utf-8",
-                    errors="ignore"
+                raise HTTPException(
+                    status_code=500,
+                    detail="Uploaded file could not be located."
                 )
 
-                uploaded_context = uploaded_context[:12000]
+            # ---------------------------------------------
+            # EXTRACT FILE CONTENT
+            # ---------------------------------------------
 
-                logger.info(
-                    "Text file processed: %s",
-                    filename
+            uploaded_context = extract_text(
+                stored_path
+            )
+
+            if not uploaded_context.strip():
+
+                raise HTTPException(
+                    status_code=400,
+                    detail="No readable content found in uploaded file."
                 )
 
-            else:
+            # ---------------------------------------------
+            # CONTEXT LIMIT
+            # ---------------------------------------------
 
-                logger.info(
-                    "Document extraction not implemented for this endpoint: %s",
-                    filename
-                )
+            uploaded_context = uploaded_context[:30000]
+
+            logger.info(
+                "File content extracted successfully | "
+                "Filename=%s | Characters=%s",
+                filename,
+                len(uploaded_context)
+            )
 
         # =================================================
         # PROMPT VALIDATION
@@ -356,7 +381,8 @@ async def coding_agent_api(
                 )
 
                 logger.info(
-                    "Streaming completed | User=%s | Model=%s | Time=%ss",
+                    "Streaming completed | "
+                    "User=%s | Model=%s | Time=%ss",
                     user_id,
                     model,
                     elapsed

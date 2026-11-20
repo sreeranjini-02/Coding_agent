@@ -1,31 +1,37 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import "./auth.css";
 
-export default function Register() {
+export default function ResetPassword() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const token = searchParams.get("token");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
 
+    setMessage("");
     setError("");
-    setSuccess("");
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+    if (!token) {
+      setError("Invalid or missing reset link.");
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must contain at least 8 characters");
+      setError("Password must contain at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -33,16 +39,15 @@ export default function Register() {
 
     try {
       const response = await fetch(
-        "http://localhost:8000/auth/register",
+        "http://localhost:8000/auth/reset-password",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            username,
-            email,
-            password,
+            token: token,
+            new_password: password,
           }),
         }
       );
@@ -53,119 +58,111 @@ export default function Register() {
         throw new Error(
           typeof data.detail === "string"
             ? data.detail
-            : "Registration failed"
+            : "Unable to reset password."
         );
       }
 
-      setSuccess("Account created successfully!");
+      setMessage(
+        data.message || "Password reset successfully!"
+      );
+
+      setPassword("");
+      setConfirmPassword("");
 
       setTimeout(() => {
         navigate("/login");
-      }, 1500);
+      }, 2000);
 
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className="reset-page">
 
-        <div className="auth-brand">
-          <div className="auth-logo">Z</div>
-          <div className="auth-brand-name">
-            ZEN<span>EX</span>
-          </div>
+      <div className="reset-card">
+
+        {/* BRAND */}
+        <div className="reset-brand">
+          <h1>ZENEX</h1>
+          <span>AI CODING AGENT</span>
         </div>
 
-        <h1 className="auth-title">Create account</h1>
-        <p className="auth-subtitle">Get started with ZENEX</p>
+        {/* TITLE */}
+        <h2>Reset Password</h2>
 
-        {error && <div className="auth-alert error">{error}</div>}
+        <p className="reset-subtitle">
+          Create a new password for your account.
+        </p>
 
-        {success && <div className="auth-alert success">{success}</div>}
-
-        <form onSubmit={handleRegister}>
-
-          <div className="auth-field">
-            <label htmlFor="register-username">Username</label>
-            <input
-              id="register-username"
-              className="auth-input"
-              type="text"
-              placeholder="Choose a username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              minLength={3}
-              maxLength={50}
-              required
-            />
+        {/* SUCCESS MESSAGE */}
+        {message && (
+          <div className="reset-success">
+            {message}
           </div>
+        )}
 
-          <div className="auth-field">
-            <label htmlFor="register-email">Email</label>
-            <input
-              id="register-email"
-              className="auth-input"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+        {/* ERROR MESSAGE */}
+        {error && (
+          <div className="reset-error">
+            {error}
           </div>
+        )}
 
-          <div className="auth-field">
-            <label htmlFor="register-password">Password</label>
+        {/* PASSWORD FORM */}
+        <form onSubmit={handleResetPassword}>
+
+          <div className="reset-input-group">
+            <label>New Password</label>
+
             <input
-              id="register-password"
-              className="auth-input"
               type="password"
-              placeholder="Create a password"
+              placeholder="Enter new password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              maxLength={72}
               required
+              minLength={8}
+              autoComplete="new-password"
             />
           </div>
 
-          <div className="auth-field">
-            <label htmlFor="register-confirm">Confirm Password</label>
+          <div className="reset-input-group">
+            <label>Confirm Password</label>
+
             <input
-              id="register-confirm"
-              className="auth-input"
               type="password"
-              placeholder="Confirm your password"
+              placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              minLength={8}
+              autoComplete="new-password"
             />
           </div>
 
           <button
             type="submit"
-            className="auth-button"
+            className="reset-button"
             disabled={loading}
           >
-            {loading ? "Creating account..." : "Create Account"}
+            {loading
+              ? "Resetting Password..."
+              : "Reset Password"}
           </button>
 
         </form>
 
-        <div className="auth-footer">
-          Already have an account?
-          <button
-            type="button"
-            className="auth-link"
-            onClick={() => navigate("/login")}
-          >
-            Sign in
-          </button>
-        </div>
+        {/* BACK TO LOGIN */}
+        <button
+          type="button"
+          className="reset-back-button"
+          onClick={() => navigate("/login")}
+        >
+          Back to Login
+        </button>
 
       </div>
     </div>
