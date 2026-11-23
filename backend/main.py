@@ -32,6 +32,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from starlette.middleware.sessions import SessionMiddleware
 
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
 # Authentication
 from backend.auth_routes import (
     router as auth_router,
@@ -87,7 +90,6 @@ FRONTEND_URL = os.getenv(
 ).strip().rstrip("/")
 
 if not JWT_SECRET_KEY:
-
     raise RuntimeError(
         "JWT_SECRET_KEY is missing from root .env"
     )
@@ -188,6 +190,79 @@ def health_check():
 
 
 # =====================================================
+# CONVERSATION HISTORY HELPER
+# =====================================================
+
+def get_conversation_history(
+    conversation_id: int,
+    user_id: int,
+    db
+):
+    """
+    Retrieve conversation history belonging to the
+    authenticated user and selected conversation.
+    """
+
+    # ---------------------------------------------
+    # VERIFY CONVERSATION OWNERSHIP
+    # ---------------------------------------------
+
+    conversation = db.execute(
+        text("""
+            SELECT id
+            FROM conversations
+            WHERE id = :conversation_id
+              AND user_id = :user_id
+        """),
+        {
+            "conversation_id": conversation_id,
+            "user_id": user_id
+        }
+    ).first()
+
+    if not conversation:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found."
+        )
+
+    # ---------------------------------------------
+    # FETCH PREVIOUS MESSAGES
+    # ---------------------------------------------
+
+    result = db.execute(
+        text("""
+            SELECT
+                role,
+                content
+            FROM messages
+            WHERE conversation_id = :conversation_id
+              AND user_id = :user_id
+            ORDER BY id ASC
+        """),
+        {
+            "conversation_id": conversation_id,
+            "user_id": user_id
+        }
+    )
+
+    history = [
+        dict(row)
+        for row in result.mappings().all()
+    ]
+
+    logger.info(
+        "Conversation history retrieved | "
+        "Conversation=%s | Messages=%s",
+        conversation_id,
+        len(history)
+    )
+
+    return history
+
+
+# =====================================================
 # CODING AGENT API
 # =====================================================
 
@@ -201,6 +276,8 @@ async def coding_agent_api(
     model: str = Form("gemini-3.5-flash-lite"),
 
     auto_fallback: bool = Form(False),
+
+    conversation_id: int = Form(...),
 
     file: UploadFile | None = File(None),
 
@@ -235,6 +312,33 @@ async def coding_agent_api(
             "Authenticated user ID: %s",
             user_id
         )
+
+        # =================================================
+        # VALIDATE QUESTION
+        # =================================================
+
+        if not prompt or not prompt.strip():
+
+            raise HTTPException(
+                status_code=400,
+                detail="Prompt cannot be empty"
+            )
+
+        prompt = prompt.strip()
+
+        # =================================================
+        # FETCH CONVERSATION HISTORY
+        # =================================================
+
+        conversation_history = get_conversation_history(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            db=db
+        )
+
+        # =================================================
+        # UPLOADED FILE CONTEXT
+        # =================================================
 
         uploaded_context = ""
 
@@ -339,24 +443,20 @@ async def coding_agent_api(
             )
 
         # =================================================
-        # PROMPT VALIDATION
-        # =================================================
-
-        if not prompt.strip():
-
-            raise HTTPException(
-                status_code=400,
-                detail="Prompt cannot be empty"
-            )
-
-        # =================================================
-        # PREPARE AGENT PROMPT
+        # PREPARE AGENT PROMPT WITH HISTORY
         # =================================================
 
         final_prompt = prepare_agent_prompt(
             question=prompt,
             mode=mode,
-            uploaded_context=uploaded_context
+            uploaded_context=uploaded_context,
+            conversation_history=conversation_history
+        )
+
+        logger.info(
+            "Agent prompt prepared | "
+            "History messages=%s",
+            len(conversation_history)
         )
 
         # =================================================
@@ -364,6 +464,8 @@ async def coding_agent_api(
         # =================================================
 
         def response_generator():
+
+            full_response = ""
 
             try:
 
@@ -373,7 +475,64 @@ async def coding_agent_api(
                     context=""
                 ):
 
+                    if not chunk:
+                        continue
+
+                    full_response += chunk
+
                     yield chunk
+
+                # -----------------------------------------
+                # SAVE ASSISTANT RESPONSE AFTER GENERATION
+                # -----------------------------------------
+
+                if full_response.strip():
+
+                    db.execute(
+                        text("""
+                            INSERT INTO messages (
+                                conversation_id,
+                                user_id,
+                                role,
+                                content,
+                                model_name,
+                                response_time
+                            )
+                            VALUES (
+                                :conversation_id,
+                                :user_id,
+                                'assistant',
+                                :content,
+                                :model_name,
+                                :response_time
+                            )
+                        """),
+                        {
+                            "conversation_id": conversation_id,
+                            "user_id": user_id,
+                            "content": full_response,
+                            "model_name": model,
+                            "response_time": round(
+                                time.perf_counter() - start_time,
+                                2
+                            )
+                        }
+                    )
+
+                    db.execute(
+                        text("""
+                            UPDATE conversations
+                            SET updated_at = CURRENT_TIMESTAMP
+                            WHERE id = :conversation_id
+                              AND user_id = :user_id
+                        """),
+                        {
+                            "conversation_id": conversation_id,
+                            "user_id": user_id
+                        }
+                    )
+
+                    db.commit()
 
                 elapsed = round(
                     time.perf_counter() - start_time,
@@ -382,19 +541,23 @@ async def coding_agent_api(
 
                 logger.info(
                     "Streaming completed | "
-                    "User=%s | Model=%s | Time=%ss",
+                    "User=%s | Conversation=%s | "
+                    "Model=%s | Time=%ss",
                     user_id,
+                    conversation_id,
                     model,
                     elapsed
                 )
 
             except Exception:
 
+                db.rollback()
+
                 logger.exception(
-                    "Streaming generation failed"
+                    "Streaming generation or saving failed"
                 )
 
-                yield "\n\nError: Unable to generate response."
+                yield "\n\nError: Unable to complete or save the response."
 
         return StreamingResponse(
             response_generator(),
@@ -457,6 +620,10 @@ async def startup_event():
 
     logger.info(
         "MySQL Chat History: Enabled"
+    )
+
+    logger.info(
+        "Conversation Context: Enabled"
     )
 
     logger.info(

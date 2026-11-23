@@ -18,6 +18,7 @@ const MODES = [
 const MODELS = [
   "gemini-3.5-flash-lite",
   "gemini-3.5-flash",
+  "gemini-3.5-flash",
   "gemini-3.6-flash",
   "gemini-3.7-flash",
   "gemini-3.8-flash",
@@ -36,6 +37,9 @@ export default function CodingAgent() {
   const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Conversation memory ID
+  const [conversationId, setConversationId] = useState(null);
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -72,6 +76,60 @@ export default function CodingAgent() {
       )
     );
   };
+
+  // --------------------------------------------------
+  // CREATE MYSQL CONVERSATION
+  // --------------------------------------------------
+
+  const createConversation = async (token) => {
+    const response = await fetch(
+      `${API_URL}/chat/conversations`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: "New Chat",
+        }),
+      }
+    );
+
+    if (response.status === 401) {
+      logout();
+      throw new Error("Session expired. Login again.");
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      throw new Error(
+        errorText || "Failed to create conversation."
+      );
+    }
+
+    const data = await response.json();
+
+    const newConversationId =
+      data.conversation_id ??
+      data.conversationId ??
+      data.id;
+
+    if (!newConversationId) {
+      throw new Error(
+        "Conversation ID was not returned from the backend."
+      );
+    }
+
+    setConversationId(newConversationId);
+
+    return newConversationId;
+  };
+
+  // --------------------------------------------------
+  // SEND MESSAGE
+  // --------------------------------------------------
 
   const sendMessage = async () => {
     const question = prompt.trim();
@@ -112,29 +170,63 @@ export default function CodingAgent() {
     ]);
 
     setPrompt("");
+
+    // Keep a local copy of the file before clearing it
+    const fileToUpload = selectedFile;
+
     abortControllerRef.current = new AbortController();
 
     try {
+      // --------------------------------------------------
+      // ENSURE CONVERSATION EXISTS
+      // --------------------------------------------------
+
+      let activeConversationId = conversationId;
+
+      if (!activeConversationId) {
+        activeConversationId = await createConversation(token);
+      }
+
+      // --------------------------------------------------
+      // PREPARE REQUEST
+      // --------------------------------------------------
+
       const formData = new FormData();
 
-      formData.append("prompt", question || "Analyze uploaded file.");
+      formData.append(
+        "prompt",
+        question || "Analyze uploaded file."
+      );
+
       formData.append("mode", mode);
       formData.append("model", model);
       formData.append("auto_fallback", String(autoFallback));
 
-      if (selectedFile) {
-        formData.append("file", selectedFile);
+      // Send conversation ID for history retrieval
+      formData.append(
+        "conversation_id",
+        String(activeConversationId)
+      );
+
+      if (fileToUpload) {
+        formData.append("file", fileToUpload);
       }
 
-      // Send request to FastAPI backend
-      const response = await fetch(`${API_URL}/coding-agent`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-        signal: abortControllerRef.current.signal,
-      });
+      // --------------------------------------------------
+      // BACKEND REQUEST
+      // --------------------------------------------------
+
+      const response = await fetch(
+        `${API_URL}/coding-agent`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+          signal: abortControllerRef.current.signal,
+        }
+      );
 
       if (response.status === 401) {
         logout();
@@ -152,18 +244,22 @@ export default function CodingAgent() {
               ? data.detail
               : JSON.stringify(data.detail || data);
         } catch {
-          // Response was not JSON.
+          // Response was not JSON
         }
 
         throw new Error(message);
       }
 
-      // Backend accepted the request, so the attachment can be cleared.
+      // Clear file after backend accepts the request
       setSelectedFile(null);
 
       if (!response.body) {
         throw new Error("Streaming response unavailable.");
       }
+
+      // --------------------------------------------------
+      // STREAM RESPONSE
+      // --------------------------------------------------
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -175,11 +271,14 @@ export default function CodingAgent() {
 
         if (done) break;
 
-        output += decoder.decode(value, { stream: true });
+        output += decoder.decode(value, {
+          stream: true,
+        });
 
         updateAssistantMessage(assistantId, output);
       }
 
+      // Flush remaining decoder content
       output += decoder.decode();
 
       if (!output.trim()) {
@@ -198,10 +297,11 @@ export default function CodingAgent() {
           loading: false,
           stopped: true,
         });
+
         return;
       }
 
-      console.error(err);
+      console.error("Coding Agent Error:", err);
 
       setError(err.message || "Unable to connect to backend.");
 
@@ -218,12 +318,25 @@ export default function CodingAgent() {
     }
   };
 
+  // --------------------------------------------------
+  // NEW CHAT
+  // --------------------------------------------------
+
   const newChat = () => {
     if (loading) return;
+
     setMessages([]);
     setError("");
     setPrompt("");
+    setSelectedFile(null);
+
+    // Reset conversation memory
+    setConversationId(null);
   };
+
+  // --------------------------------------------------
+  // KEYBOARD
+  // --------------------------------------------------
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -231,6 +344,10 @@ export default function CodingAgent() {
       sendMessage();
     }
   };
+
+  // --------------------------------------------------
+  // UI - ORIGINAL DESIGN PRESERVED
+  // --------------------------------------------------
 
   return (
     <div className="chatgpt-app">

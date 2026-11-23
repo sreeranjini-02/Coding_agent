@@ -1,556 +1,1645 @@
-/* ==========================================
+/* =========================================================
    ZENEX AI LOGIN PAGE
-========================================== */
+   SOFTWORKS TECHNOLOGIES
+   login.css
+========================================================= */
 
-.login-page {
-  width: 100%;
-  height: 100vh;
-  min-height: 0;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  padding: 20px;
-
-  background: #0d0d0f;
-  color: #ffffff;
-
-  overflow: hidden;
-
-  box-sizing: border-box;
+:root {
+    --navy-900: #061b3d;
+    --navy-800: #092653;
+    --ink: #0b2047;
+    --ink-soft: #45628d;
+    --blue-600: #075be8;
+    --blue-500: #0877ec;
+    --cyan: #22c3e6;
+    --line: rgba(59, 102, 168, 0.18);
+    --danger: #c62828;
+    --success: #15803d;
+    --code-light: rgba(11, 32, 71, 0.13);
+    --code-dark: rgba(180, 215, 255, 0.14);
 }
 
-/* ==========================================
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* =========================================================
+   PAGE SHELL
+========================================================= */
+
+.zenex-login-page {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--navy-900);
+}
+
+.zenex-login-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 62% 38%;
+    overflow: hidden;
+}
+
+/* =========================================================
+   LEFT PANEL
+========================================================= */
+
+.zenex-left-panel {
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(18px, 4vh, 40px) clamp(28px, 4vw, 56px) clamp(48px, 8vh, 64px);
+    background:
+        radial-gradient(ellipse at 75% 55%, rgba(98, 179, 255, 0.45), transparent 45%),
+        linear-gradient(135deg, #f9fbff 0%, #e5f0ff 45%, #c8e2ff 100%);
+    color: var(--ink);
+}
+
+/* Decorative code in the empty top-right area */
+.zenex-left-panel::before {
+    content: "const zenex = new Agent({ model: 'zx-1' });\A"
+             "await zenex.review(app);\A"
+             "zenex.suggest({ fix: true, explain: true });";
+    white-space: pre;
+    position: absolute;
+    z-index: -1;
+    top: 13%;
+    right: 4%;
+    color: var(--code-light);
+    font-family: Consolas, Monaco, monospace;
+    font-size: clamp(10px, 1.4vh, 13px);
+    line-height: 1.9;
+    pointer-events: none;
+}
+
+/* Faint dot grid, faded at the edges */
+.zenex-left-panel::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background-image: radial-gradient(rgba(7, 27, 70, 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 75%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 25%, #000 75%, transparent);
+    pointer-events: none;
+}
+
+.left-circle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.circle-one {
+    width: 650px;
+    height: 650px;
+    top: -390px;
+    right: -220px;
+    border: 1px solid rgba(40, 136, 255, 0.15);
+}
+
+.circle-two {
+    width: 480px;
+    height: 480px;
+    top: -260px;
+    right: -100px;
+    border: 1px solid rgba(40, 136, 255, 0.1);
+}
+
+.left-glow {
+    position: absolute;
+    width: 550px;
+    height: 400px;
+    right: -100px;
+    bottom: 80px;
+    background: rgba(70, 162, 255, 0.15);
+    filter: blur(80px);
+    pointer-events: none;
+}
+
+/* Left logo: no box, white edges blend into the panel */
+.left-company-logo {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: clamp(8px, 2vh, 22px);
+}
+
+.left-company-logo img {
+    display: block;
+    width: auto;
+    height: clamp(120px, 22vh, 200px);
+    max-width: 100%;
+    object-fit: contain;
+    object-position: left center;
+    mix-blend-mode: multiply;
+}
+
+/* =========================================================
+   ZENEX BRAND
+========================================================= */
+
+.zenex-brand-content {
+    position: relative;
+    z-index: 5;
+}
+
+.zenex-main-title {
+    display: flex;
+    align-items: center;
+    line-height: 0.95;
+    white-space: nowrap;
+}
+
+.zenex-title-dark,
+.zenex-title-arrow,
+.zenex-title-blue {
+    font-size: clamp(30px, 5.2vh, 52px);
+    font-weight: 900;
+}
+
+.zenex-title-dark {
+    color: #071b46;
+    letter-spacing: -0.04em;
+}
+
+.zenex-title-arrow {
+    color: #071b46;
+    margin: 0 -1px;
+    letter-spacing: -0.04em;
+}
+
+.zenex-title-blue {
+    color: #00a4e5;
+    letter-spacing: -0.04em;
+}
+
+.zenex-agent-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: clamp(4px, 0.8vh, 8px);
+    color: #10264e;
+    font-size: clamp(12px, 1.9vh, 16px);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.title-line {
+    width: clamp(20px, 3vw, 40px);
+    height: 2px;
+    background: #244c92;
+}
+
+/* =========================================================
+   TAGLINE
+========================================================= */
+
+.zenex-description-section {
+    position: relative;
+    z-index: 5;
+    margin-top: clamp(8px, 1.8vh, 18px);
+    margin-bottom: clamp(8px, 1.8vh, 18px);
+}
+
+.zenex-tagline {
+    margin: 0 0 clamp(4px, 0.8vh, 8px);
+    color: var(--ink-soft);
+    font-size: clamp(15px, 2.4vh, 22px);
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.zenex-description {
+    max-width: 420px;
+    margin: 0;
+    color: #0c2047;
+    font-size: clamp(11px, 1.45vh, 13px);
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+/* =========================================================
+   FEATURES
+========================================================= */
+
+.zenex-feature-list {
+    position: relative;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.9vh, 8px);
+    width: 100%;
+    max-width: 330px;
+}
+
+.zenex-feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: clamp(38px, 6vh, 50px);
+    padding: 4px 10px 4px 0;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(188, 216, 255, 0.6), rgba(220, 237, 255, 0.25));
+    transition: transform 0.2s ease;
+}
+
+.zenex-feature-item:hover {
+    transform: translateX(3px);
+}
+
+.feature-icon {
+    width: clamp(32px, 5vh, 42px);
+    height: clamp(32px, 5vh, 42px);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(206, 227, 255, 0.88);
+}
+
+.feature-icon svg {
+    width: clamp(16px, 2.4vh, 20px);
+    height: clamp(16px, 2.4vh, 20px);
+    fill: none;
+    stroke: #0863e9;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.feature-text h4 {
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(11.5px, 1.6vh, 13.5px);
+    font-weight: 750;
+    line-height: 1.25;
+}
+
+.feature-text p {
+    margin: 1px 0 0;
+    color: #132c54;
+    font-size: clamp(9.5px, 1.25vh, 11px);
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+/* =========================================================
+   CODING VISUAL (decorative)
+========================================================= */
+
+.coding-visual {
+    position: absolute;
+    z-index: 3;
+    right: 0;
+    bottom: clamp(48px, 7vh, 64px);
+    width: 50%;
+    height: 34%;
+    pointer-events: none;
+}
+
+.coding-laptop {
+    position: absolute;
+    right: 8px;
+    bottom: 10px;
+    width: 92%;
+}
+
+.laptop-screen {
+    position: relative;
+    width: 100%;
+    height: clamp(120px, 22vh, 200px);
+    padding: 8px;
+    border: 5px solid #142b50;
+    border-bottom-width: 9px;
+    border-radius: 12px 12px 5px 5px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #071b3b, #102d58);
+    box-shadow:
+        0 25px 45px rgba(7, 29, 68, 0.25),
+        0 0 25px rgba(31, 131, 255, 0.12);
+    transform: perspective(900px) rotateY(-8deg) rotateX(3deg);
+}
+
+.laptop-toolbar {
+    position: relative;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.laptop-toolbar > span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.laptop-toolbar > span:nth-child(1) { background: #ff646b; }
+.laptop-toolbar > span:nth-child(2) { background: #ffc75a; }
+.laptop-toolbar > span:nth-child(3) { background: #45d99b; }
+
+.toolbar-title {
+    margin-left: 14px;
+    color: #7695bd;
+    font-size: 8px;
+}
+
+.laptop-code {
+    padding: 8px 4px;
+    color: #e1eaff;
+    font-family: Consolas, Monaco, monospace;
+    font-size: clamp(7px, 1vh, 9px);
+    line-height: 1.85;
+}
+
+.indent {
+    padding-left: 14px;
+}
+
+.code-purple { color: #ca8bff; }
+.code-blue   { color: #79c8ff; }
+.code-yellow { color: #f7d66b; }
+.code-green  { color: #65e5a1; }
+
+.laptop-base {
+    position: relative;
+    width: 110%;
+    height: 12px;
+    margin-left: -5%;
+    background: linear-gradient(180deg, #9fb9db, #526d94, #c1d5ed);
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 12px 18px rgba(8, 30, 63, 0.2);
+}
+
+.laptop-trackpad {
+    position: absolute;
+    width: 50px;
+    height: 4px;
+    left: 50%;
+    top: 2px;
+    transform: translateX(-50%);
+    background: rgba(30, 59, 96, 0.45);
+    border-radius: 0 0 6px 6px;
+}
+
+.floating-code-icon {
+    position: absolute;
+    top: 6%;
+    left: 2%;
+    width: clamp(80px, 11vh, 110px);
+    height: clamp(60px, 8.5vh, 84px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(0, 181, 255, 0.9);
+    border-radius: 12px;
+    background: rgba(16, 135, 255, 0.12);
+    box-shadow:
+        0 0 20px rgba(0, 179, 255, 0.25),
+        inset 0 0 25px rgba(0, 179, 255, 0.08);
+    transform: rotate(-5deg);
+}
+
+.floating-code-icon span {
+    color: #36c8ff;
+    font-size: clamp(26px, 4.4vh, 40px);
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(0, 190, 255, 0.6);
+}
+
+.floating-icon-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: rgba(0, 160, 255, 0.08);
+    filter: blur(20px);
+}
+
+.visual-plant {
+    position: absolute;
+    left: 0;
+    bottom: 12%;
+    width: 70px;
+    height: 100px;
+}
+
+.plant-leaf {
+    position: absolute;
+    width: 18px;
+    height: 38px;
+    border-radius: 100% 0 100% 0;
+    background: linear-gradient(135deg, #61c38a, #23754c);
+    transform-origin: bottom center;
+}
+
+.leaf-one   { left: 24px; top: 6px;  transform: rotate(-35deg); }
+.leaf-two   { left: 36px; top: 3px;  transform: rotate(35deg); }
+.leaf-three { left: 14px; top: 24px; transform: rotate(-60deg); }
+.leaf-four  { left: 38px; top: 28px; transform: rotate(55deg); }
+.leaf-five  { left: 26px; top: 32px; transform: rotate(5deg); }
+
+.plant-pot {
+    position: absolute;
+    bottom: 0;
+    left: 17px;
+    width: 38px;
+    height: 38px;
+    background: linear-gradient(135deg, #d8c6ed, #a893c8);
+    border-radius: 4px 4px 13px 13px;
+}
+
+.pot-top {
+    position: absolute;
+    top: 0;
+    left: -4px;
+    width: 46px;
+    height: 6px;
+    border-radius: 3px;
+    background: #b7a3d6;
+}
+
+.floating-ai-card {
+    position: absolute;
+    right: 0;
+    top: 4%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+    border: 1px solid rgba(0, 133, 255, 0.18);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 10px 25px rgba(20, 94, 177, 0.12);
+}
+
+.floating-ai-star {
+    color: #008fe9;
+    font-size: 16px;
+}
+
+.floating-ai-card strong {
+    display: block;
+    color: #17345d;
+    font-size: 10px;
+}
+
+.floating-ai-card small {
+    display: block;
+    margin-top: 2px;
+    color: #7290b2;
+    font-size: 8.5px;
+}
+
+/* Left footer */
+.zenex-left-footer {
+    position: absolute;
+    z-index: 10;
+    left: clamp(28px, 4vw, 56px);
+    bottom: clamp(14px, 2.6vh, 28px);
+}
+
+.zenex-left-footer span {
+    color: #10264c;
+    font-family: Georgia, serif;
+    font-size: clamp(12px, 1.7vh, 15px);
+    font-style: italic;
+    font-weight: 600;
+}
+
+.footer-wave {
+    width: 100px;
+    height: 8px;
+    margin-top: 3px;
+    margin-left: 130px;
+    border-top: 3px solid #00a5f4;
+    border-radius: 50%;
+    transform: rotate(-5deg);
+}
+
+/* =========================================================
+   RIGHT PANEL
+========================================================= */
+
+.zenex-right-panel {
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(36px, 6vh, 52px) clamp(16px, 2vw, 26px);
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(0, 130, 255, 0.18), transparent 50%),
+        linear-gradient(135deg, #061a3d, #092653 55%, #06427b);
+}
+
+/* Decorative code in the empty bottom-left area */
+.zenex-right-panel::before {
+    content: "// zenex.connect()\A"
+             "import { auth } from '@zenex/core';\A"
+             "auth.signIn(session);";
+    white-space: pre;
+    position: absolute;
+    z-index: -1;
+    left: clamp(16px, 2vw, 28px);
+    bottom: clamp(44px, 8vh, 72px);
+    color: var(--code-dark);
+    font-family: Consolas, Monaco, monospace;
+    font-size: clamp(10px, 1.3vh, 12px);
+    line-height: 1.9;
+    pointer-events: none;
+}
+
+/* Faint dot grid, faded at the edges */
+.zenex-right-panel::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background-image: radial-gradient(rgba(180, 215, 255, 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+    -webkit-mask-image: linear-gradient(to bottom, #000, transparent 35%, transparent 65%, #000);
+    mask-image: linear-gradient(to bottom, #000, transparent 35%, transparent 65%, #000);
+    pointer-events: none;
+}
+
+.right-blue-circle {
+    position: absolute;
+    width: 850px;
+    height: 850px;
+    top: -340px;
+    left: -350px;
+    border-radius: 50%;
+    border: 60px solid rgba(0, 111, 255, 0.12);
+    pointer-events: none;
+}
+
+.right-blue-glow {
+    position: absolute;
+    width: 450px;
+    height: 450px;
+    bottom: -100px;
+    right: -100px;
+    border-radius: 50%;
+    background: rgba(0, 153, 255, 0.2);
+    filter: blur(100px);
+    pointer-events: none;
+}
+
+.right-top-text {
+    position: absolute;
+    z-index: 5;
+    top: clamp(12px, 2vh, 20px);
+    right: clamp(16px, 2vw, 26px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #dceaff;
+    font-size: 11px;
+    font-weight: 600;
+    font-style: italic;
+}
+
+.right-top-text i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #21a8ff;
+    box-shadow: 0 0 10px #21a8ff;
+}
+
+/* =========================================================
    LOGIN CARD
-========================================== */
+========================================================= */
 
 .login-card {
-  width: 100%;
-  max-width: 420px;
-
-  padding: 32px 35px;
-
-  background: #15151a;
-
-  border: 1px solid #292932;
-  border-radius: 18px;
-
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-
-  box-sizing: border-box;
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 360px;
+    max-height: 100%;
+    overflow-y: auto;
+    padding: clamp(16px, 2.6vh, 22px) clamp(18px, 2vw, 22px);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: 20px;
+    background: linear-gradient(135deg, #eef5ff 0%, #d9e9ff 100%);
+    box-shadow:
+        0 0 30px rgba(0, 153, 255, 0.22),
+        0 25px 70px rgba(0, 0, 0, 0.22);
+    scrollbar-width: none;
 }
 
-/* ==========================================
-   BRAND
-========================================== */
-
-.login-brand {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  gap: 10px;
-
-  margin-bottom: 25px;
+.login-card::-webkit-scrollbar {
+    display: none;
 }
 
-.brand-icon {
-  width: 38px;
-  height: 38px;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  border-radius: 10px;
-
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-
-  color: #ffffff;
-
-  font-size: 21px;
-  font-weight: 700;
+/* Right logo: blends into the card background (no box) */
+.login-company-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: clamp(6px, 1.2vh, 12px);
 }
 
-.brand-name {
-  font-size: 23px;
-  font-weight: 750;
-  letter-spacing: 1px;
-
-  color: #ffffff;
+.login-company-logo img {
+    display: block;
+    width: auto;
+    height: clamp(90px, 16vh, 130px);
+    max-width: 100%;
+    object-fit: contain;
+    mix-blend-mode: multiply;
 }
-
-.brand-ai {
-  color: #a78bfa;
-}
-
-/* ==========================================
-   HEADING
-========================================== */
 
 .login-heading {
-  text-align: center;
-
-  margin-bottom: 25px;
+    margin: 0;
+    text-align: center;
+    color: #071d43;
+    font-size: clamp(16px, 2.4vh, 19px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
 }
 
-.login-heading h1 {
-  margin: 0 0 8px;
-
-  font-size: 27px;
-  font-weight: 700;
-
-  color: #ffffff;
+.login-subheading {
+    margin: 2px 0 clamp(8px, 1.6vh, 12px);
+    text-align: center;
+    color: #1a355e;
+    font-size: 11.5px;
+    font-weight: 500;
 }
 
-.login-heading p {
-  margin: 0;
-
-  color: #9696a5;
-
-  font-size: 14px;
+/* Tabs */
+.login-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: clamp(8px, 1.4vh, 12px);
 }
 
-/* ==========================================
-   FORM
-========================================== */
+.login-tab {
+    position: relative;
+    padding: 6px 6px 8px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #526b91;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
 
+.login-tab:hover:not(:disabled),
+.login-tab.active {
+    color: var(--blue-600);
+}
+
+.login-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, #008de8, #153cf0);
+}
+
+/* Form */
 .login-form {
-  display: flex;
-  flex-direction: column;
-
-  gap: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.1vh, 9px);
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-
-  gap: 8px;
+.login-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: clamp(34px, 5vh, 38px);
+    border: 1px solid rgba(106, 148, 206, 0.28);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.85);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.form-group label {
-  font-size: 13px;
-  font-weight: 500;
-
-  color: #d4d4dc;
+.login-input-group:focus-within {
+    border-color: #1885f5;
+    box-shadow: 0 0 0 3px rgba(24, 133, 245, 0.1);
 }
 
-/* INPUTS */
-
-.form-group input {
-  width: 100%;
-  height: 45px;
-
-  padding: 0 13px;
-
-  background: #1c1c23;
-
-  border: 1px solid #33333d;
-  border-radius: 9px;
-
-  color: #ffffff;
-
-  font-size: 14px;
-
-  outline: none;
-
-  box-sizing: border-box;
-
-  transition: border 0.2s ease, box-shadow 0.2s ease;
+.input-icon {
+    width: 34px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
-.form-group input::placeholder {
-  color: #70707e;
+.input-icon svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: #10264e;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-.form-group input:focus {
-  border-color: #8b5cf6;
-
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+.login-input-group input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #10264e;
+    font-family: inherit;
+    font-size: 12.5px;
 }
 
-/* ==========================================
-   PASSWORD
-========================================== */
-
-.password-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.login-input-group input::placeholder {
+    color: #7b8eae;
 }
 
-.password-label a {
-  color: #a78bfa;
-
-  font-size: 12px;
-  text-decoration: none;
+.password-toggle {
+    width: 32px;
+    height: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #10264e;
+    cursor: pointer;
 }
 
-.password-label a:hover {
-  color: #c4b5fd;
+.password-toggle svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-.password-input {
-  position: relative;
-
-  width: 100%;
+/* Remember / forgot */
+.login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0;
 }
 
-.password-input input {
-  padding-right: 60px;
+.remember-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #10264e;
+    font-size: 11.5px;
+    cursor: pointer;
 }
 
-.show-password {
-  position: absolute;
-
-  right: 12px;
-  top: 50%;
-
-  transform: translateY(-50%);
-
-  border: none;
-  background: transparent;
-
-  color: #a78bfa;
-
-  font-size: 12px;
-  font-weight: 500;
-
-  cursor: pointer;
+.remember-option input {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: var(--blue-500);
+    cursor: pointer;
 }
 
-/* ==========================================
-   SIGN IN BUTTON
-========================================== */
-
-.login-submit {
-  width: 100%;
-  height: 46px;
-
-  margin-top: 3px;
-
-  border: none;
-  border-radius: 9px;
-
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-
-  color: #ffffff;
-
-  font-size: 15px;
-  font-weight: 600;
-
-  cursor: pointer;
-
-  transition: all 0.2s ease;
+.forgot-password {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--blue-600);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
 }
 
-.login-submit:hover {
-  background: linear-gradient(135deg, #9b72fa, #7c3aed);
-
-  transform: translateY(-1px);
+.forgot-password:hover:not(:disabled) {
+    text-decoration: underline;
 }
 
-.login-submit:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
+/* Notices */
+.login-error,
+.login-success {
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.4;
 }
 
-/* ==========================================
-   DIVIDER
-========================================== */
+.login-error {
+    border: 1px solid rgba(220, 50, 50, 0.2);
+    background: rgba(255, 235, 235, 0.9);
+    color: var(--danger);
+}
 
+.login-success {
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    background: rgba(230, 255, 240, 0.95);
+    color: var(--success);
+}
+
+/* Submit */
+.login-submit-button {
+    width: 100%;
+    height: clamp(36px, 5vh, 40px);
+    margin-top: 2px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(100deg, #0097e8, #0929e8);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(0, 85, 235, 0.18);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.login-submit-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(0, 85, 235, 0.25);
+}
+
+.login-submit-button:active:not(:disabled) {
+    transform: scale(0.99);
+}
+
+.login-submit-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Divider */
 .login-divider {
-  display: flex;
-  align-items: center;
-
-  gap: 12px;
-
-  margin: 22px 0;
-}
-
-.login-divider::before,
-.login-divider::after {
-  content: "";
-
-  flex: 1;
-
-  height: 1px;
-
-  background: #303039;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: clamp(6px, 1.2vh, 10px) 0;
+    color: #18345c;
 }
 
 .login-divider span {
-  color: #777783;
-
-  font-size: 10px;
-  font-weight: 600;
-
-  letter-spacing: 1px;
-
-  white-space: nowrap;
+    flex: 1;
+    height: 1px;
+    background: rgba(65, 105, 168, 0.2);
 }
 
-/* ==========================================
-   SOCIAL LOGIN
-========================================== */
+.login-divider p {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 500;
+}
 
+/* Google / Microsoft */
 .social-login {
-  display: flex;
-
-  gap: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
 }
 
 .social-button {
-  flex: 1;
-
-  height: 43px;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  gap: 9px;
-
-  background: #1c1c23;
-
-  border: 1px solid #33333d;
-  border-radius: 9px;
-
-  color: #e5e5eb;
-
-  font-size: 13px;
-  font-weight: 500;
-
-  cursor: pointer;
-
-  transition: background 0.2s ease, border 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    height: clamp(32px, 4.6vh, 36px);
+    padding: 4px 6px;
+    border: 1px solid rgba(91, 131, 187, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.7);
+    color: #142a4d;
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.social-button:hover {
-  background: #25252d;
-  border-color: #555563;
+.social-button:hover:not(:disabled) {
+    background: #ffffff;
+    border-color: #8bb8f5;
+    transform: translateY(-1px);
 }
 
-.social-button:active {
-  transform: scale(0.98);
+.social-button svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
-
-/* ==========================================
-   GOOGLE ICON
-========================================== */
-
-.google-icon {
-  font-size: 18px;
-  font-weight: 700;
-
-  font-family: Arial, sans-serif;
-
-  background: conic-gradient(
-    from -45deg,
-    #4285f4 0deg 90deg,
-    #34a853 90deg 180deg,
-    #fbbc05 180deg 270deg,
-    #ea4335 270deg 360deg
-  );
-
-  -webkit-background-clip: text;
-  background-clip: text;
-
-  color: transparent;
-}
-
-/* ==========================================
-   MICROSOFT ICON
-========================================== */
 
 .microsoft-icon {
-  width: 16px;
-  height: 16px;
-
-  display: grid;
-
-  grid-template-columns: repeat(2, 7px);
-  grid-template-rows: repeat(2, 7px);
-
-  gap: 2px;
+    width: 13px;
+    height: 13px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1.5px;
+    flex-shrink: 0;
 }
 
-.microsoft-icon span:nth-child(1) {
-  background: #f25022;
+.microsoft-icon span:nth-child(1) { background: #f35325; }
+.microsoft-icon span:nth-child(2) { background: #81bc06; }
+.microsoft-icon span:nth-child(3) { background: #05a6f0; }
+.microsoft-icon span:nth-child(4) { background: #ffba08; }
+
+/* Register footer */
+.login-register-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: clamp(6px, 1.2vh, 10px);
+    color: #29466e;
+    font-size: 11px;
 }
 
-.microsoft-icon span:nth-child(2) {
-  background: #7fba00;
+.login-register-footer button {
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--blue-600);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
-.microsoft-icon span:nth-child(3) {
-  background: #00a4ef;
+.login-register-footer button:hover:not(:disabled) {
+    text-decoration: underline;
 }
 
-.microsoft-icon span:nth-child(4) {
-  background: #ffb900;
+/* Disabled + focus */
+.login-input-group input:disabled,
+.social-button:disabled,
+.login-tab:disabled,
+.forgot-password:disabled,
+.password-toggle:disabled,
+.login-register-footer button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
-/* ==========================================
-   REGISTER
-========================================== */
-
-.register-link {
-  text-align: center;
-
-  margin-top: 23px;
-
-  color: #9696a5;
-
-  font-size: 13px;
+.login-tab:focus-visible,
+.login-submit-button:focus-visible,
+.social-button:focus-visible,
+.forgot-password:focus-visible,
+.password-toggle:focus-visible,
+.login-register-footer button:focus-visible,
+.remember-option input:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
 }
 
-.register-link a {
-  color: #a78bfa;
+/* =========================================================
+   COPYRIGHT + BOTTOM DECORATION
+========================================================= */
 
-  font-weight: 600;
-
-  text-decoration: none;
+.zenex-copyright {
+    position: absolute;
+    z-index: 20;
+    left: 28px;
+    bottom: 8px;
+    color: #dceaff;
+    font-size: 10px;
 }
 
-.register-link a:hover {
-  color: #c4b5fd;
+.bottom-blue-decoration {
+    position: absolute;
+    z-index: 15;
+    right: 28px;
+    bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-/* ==========================================
-   FOOTER
-========================================== */
-
-.login-footer {
-  text-align: center;
-
-  margin-top: 20px;
-  padding-top: 15px;
-
-  border-top: 1px solid #292932;
-
-  color: #656572;
-
-  font-size: 11px;
+.bottom-blue-decoration span {
+    width: 13px;
+    height: 20px;
+    background: #08a4e9;
+    transform: skew(-30deg);
+    border-radius: 2px;
 }
 
-/* ==========================================
-   SMALL LAPTOP HEIGHT
-========================================== */
+.bottom-blue-decoration span:nth-child(2) { background: #0579cf; }
+.bottom-blue-decoration span:nth-child(3) { background: #23b9f3; }
 
-@media (max-height: 800px) {
-  .login-page {
-    padding: 12px;
-  }
+/* =========================================================
+   RESPONSIVE: SHORT LAPTOP SCREENS
+========================================================= */
 
-  .login-card {
-    padding: 25px 30px;
-  }
+@media (min-width: 851px) and (max-height: 760px) {
+    .coding-visual {
+        display: none;
+    }
 
-  .login-brand {
-    margin-bottom: 18px;
-  }
+    .zenex-left-footer {
+        bottom: 12px;
+    }
 
-  .login-heading {
-    margin-bottom: 20px;
-  }
+    .zenex-feature-item {
+        padding-top: 3px;
+        padding-bottom: 3px;
+    }
 
-  .login-heading h1 {
-    font-size: 24px;
-  }
-
-  .login-form {
-    gap: 14px;
-  }
-
-  .form-group input {
-    height: 42px;
-  }
-
-  .login-submit {
-    height: 43px;
-  }
-
-  .login-divider {
-    margin: 18px 0;
-  }
-
-  .social-button {
-    height: 40px;
-  }
-
-  .register-link {
-    margin-top: 18px;
-  }
-
-  .login-footer {
-    margin-top: 15px;
-    padding-top: 12px;
-  }
+    .zenex-right-panel::before {
+        display: none;
+    }
 }
 
-/* ==========================================
-   MOBILE
-========================================== */
+/* =========================================================
+   RESPONSIVE: MEDIUM DESKTOP
+========================================================= */
 
-@media (max-width: 480px) {
-  .login-page {
-    padding: 12px;
-  }
+@media (min-width: 851px) and (max-width: 1200px) {
+    .zenex-login-container {
+        grid-template-columns: 60% 40%;
+    }
 
-  .login-card {
-    padding: 25px 20px;
-  }
+    .zenex-left-panel {
+        padding-left: 32px;
+        padding-right: 28px;
+    }
 
-  .login-heading h1 {
-    font-size: 24px;
-  }
+    .zenex-left-footer {
+        left: 32px;
+    }
 
-  .social-login {
-    gap: 8px;
-  }
-
-  .social-button {
-    font-size: 12px;
-  }
+    .coding-visual {
+        width: 48%;
+    }
 }
 
-/* ==========================================
-   VERY SHORT SCREEN
-========================================== */
+/* =========================================================
+   RESPONSIVE: TABLET / MOBILE (scrolling allowed)
+========================================================= */
 
-@media (max-height: 650px) {
-  .login-page {
-    align-items: flex-start;
-    overflow-y: auto;
-  }
+@media (max-width: 850px) {
+    body {
+        overflow: auto;
+    }
 
-  .login-card {
-    margin: auto 0;
-    padding: 20px;
-  }
+    .zenex-login-page {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
 
-  .login-brand {
-    margin-bottom: 12px;
-  }
+    .zenex-login-container {
+        height: auto;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+    }
 
-  .login-heading {
-    margin-bottom: 15px;
-  }
+    .zenex-left-panel {
+        width: 100%;
+        height: auto;
+        min-height: 560px;
+        padding: 28px 24px 72px;
+    }
 
-  .login-divider {
-    margin: 15px 0;
-  }
+    .zenex-left-panel::before {
+        display: none;
+    }
 
-  .register-link {
-    margin-top: 15px;
-  }
+    .left-company-logo img {
+        height: 110px;
+    }
 
-  .login-footer {
-    margin-top: 12px;
-    padding-top: 10px;
-  }
+    .zenex-title-dark,
+    .zenex-title-arrow,
+    .zenex-title-blue {
+        font-size: 44px;
+    }
+
+    .zenex-agent-title {
+        font-size: 14px;
+    }
+
+    .zenex-tagline {
+        font-size: 19px;
+    }
+
+    .zenex-feature-list {
+        max-width: 360px;
+    }
+
+    .coding-visual {
+        display: none;
+    }
+
+    .zenex-left-footer {
+        left: 24px;
+        bottom: 22px;
+    }
+
+    .zenex-right-panel {
+        width: 100%;
+        height: auto;
+        min-height: 560px;
+        padding: 64px 20px 56px;
+    }
+
+    .zenex-right-panel::before {
+        display: none;
+    }
+
+    .right-top-text {
+        top: 20px;
+        right: 20px;
+    }
+
+    .login-card {
+        max-width: 380px;
+        max-height: none;
+        overflow: visible;
+        padding: 22px 22px 20px;
+    }
+
+    .login-company-logo img {
+        height: 100px;
+    }
+
+    .zenex-copyright {
+        position: relative;
+        left: auto;
+        bottom: auto;
+        padding: 12px 20px;
+        background: var(--navy-900);
+        text-align: center;
+    }
+
+    .bottom-blue-decoration {
+        display: none;
+    }
+}
+
+/* =========================================================
+   RESPONSIVE: SMALL MOBILE
+========================================================= */
+
+@media (max-width: 500px) {
+    .zenex-left-panel {
+        padding: 22px 20px 64px;
+        min-height: 500px;
+    }
+
+    .left-company-logo img {
+        height: 90px;
+    }
+
+    .zenex-title-dark,
+    .zenex-title-arrow,
+    .zenex-title-blue {
+        font-size: 36px;
+    }
+
+    .zenex-agent-title {
+        font-size: 12px;
+    }
+
+    .title-line {
+        width: 18px;
+    }
+
+    .zenex-tagline {
+        font-size: 17px;
+    }
+
+    .zenex-description {
+        font-size: 11.5px;
+    }
+
+    .zenex-feature-item {
+        min-height: 40px;
+    }
+
+    .feature-text h4 {
+        font-size: 11.5px;
+    }
+
+    .feature-text p {
+        font-size: 9.5px;
+    }
+
+    .zenex-left-footer span {
+        font-size: 11px;
+    }
+
+    .zenex-right-panel {
+        padding: 56px 14px 44px;
+    }
+
+    .login-card {
+        padding: 18px 16px;
+        border-radius: 18px;
+    }
+
+    .login-company-logo img {
+        height: 84px;
+    }
+
+    .login-heading {
+        font-size: 16px;
+    }
+
+    .social-login {
+        gap: 6px;
+    }
+
+    .social-button {
+        gap: 4px;
+        padding: 4px;
+        font-size: 9.5px;
+    }
+
+    .right-top-text {
+        font-size: 10px;
+        gap: 6px;
+    }
+}
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+/* =========================================================
+   LEFT PANEL: MEDIUM TEXT + ILLUSTRATION (desktop)
+========================================================= */
+@media (min-width: 851px) {
+
+    /* Show the computer illustration again on short screens too */
+    .zenex-left-panel .coding-visual {
+        display: block;
+        right: 0;
+        bottom: clamp(40px, 6vh, 64px);
+        width: 46%;
+        height: 40%;
+    }
+
+    .zenex-left-panel .coding-laptop {
+        width: 100%;
+        right: 0;
+        bottom: 8px;
+    }
+
+    .zenex-left-panel .laptop-screen {
+        height: clamp(110px, 24vh, 190px);
+    }
+
+    .zenex-left-panel .floating-code-icon {
+        width: clamp(70px, 11vh, 100px);
+        height: clamp(54px, 8.5vh, 78px);
+    }
+
+    .zenex-left-panel .floating-code-icon span {
+        font-size: clamp(24px, 4vh, 36px);
+    }
+
+    .zenex-left-panel .floating-ai-card {
+        top: 0;
+        right: 4%;
+    }
+
+    .zenex-left-panel .visual-plant {
+        left: -2%;
+        bottom: 8%;
+        width: 64px;
+        height: 96px;
+    }
+
+    /* Left logo */
+    .zenex-left-panel .left-company-logo img {
+        height: clamp(80px, 15vh, 130px);
+    }
+
+    /* ZENEX wordmark (medium) */
+    .zenex-left-panel .zenex-brand-content {
+        margin-top: clamp(4px, 1vh, 12px);
+    }
+
+    .zenex-left-panel .zenex-title-dark,
+    .zenex-left-panel .zenex-title-blue {
+        font-size: clamp(46px, 8vh, 76px);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        line-height: 1;
+    }
+
+    .zenex-left-panel .zenex-title-dark {
+        color: #0a1d4a;
+    }
+
+    .zenex-left-panel .zenex-title-blue {
+        color: #00a4e5;
+    }
+
+    /* "AI Coding Agent" */
+    .zenex-left-panel .zenex-agent-title {
+        gap: 12px;
+        margin-top: clamp(4px, 0.8vh, 8px);
+        font-size: clamp(15px, 2.4vh, 22px);
+        font-weight: 600;
+        color: #0f2a5c;
+    }
+
+    .zenex-left-panel .title-line {
+        width: clamp(24px, 3vw, 44px);
+        height: 2px;
+        background: #1d3f7e;
+    }
+
+    /* Tagline */
+    .zenex-left-panel .zenex-description-section {
+        margin-top: clamp(10px, 2vh, 20px);
+        margin-bottom: clamp(10px, 2vh, 20px);
+    }
+
+    .zenex-left-panel .zenex-tagline {
+        margin-bottom: clamp(4px, 0.8vh, 8px);
+        color: #4a6391;
+        font-size: clamp(20px, 3.2vh, 30px);
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    /* Description: narrower so it stays clear of the laptop */
+    .zenex-left-panel .zenex-description {
+        max-width: 400px;
+        color: #0c2047;
+        font-size: clamp(13px, 1.8vh, 16px);
+        font-weight: 500;
+        line-height: 1.5;
+    }
+
+    /* Feature cards: narrower so they stay clear of the laptop */
+    .zenex-left-panel .zenex-feature-list {
+        max-width: 380px;
+        gap: clamp(6px, 1.1vh, 10px);
+        margin-top: clamp(6px, 1.2vh, 12px);
+    }
+
+    .zenex-left-panel .zenex-feature-item {
+        min-height: clamp(50px, 7.8vh, 64px);
+        gap: 12px;
+        padding: 6px 12px 6px 6px;
+        border-radius: 14px;
+        background: linear-gradient(90deg, rgba(190, 218, 255, 0.7), rgba(222, 238, 255, 0.3));
+    }
+
+    .zenex-left-panel .feature-icon {
+        width: clamp(40px, 6.2vh, 50px);
+        height: clamp(40px, 6.2vh, 50px);
+        border-radius: 12px;
+        background: rgba(200, 224, 255, 0.95);
+    }
+
+    .zenex-left-panel .feature-icon svg {
+        width: clamp(20px, 3vh, 24px);
+        height: clamp(20px, 3vh, 24px);
+        stroke: #0a64e6;
+    }
+
+    .zenex-left-panel .feature-text h4 {
+        font-size: clamp(13px, 2vh, 16px);
+        font-weight: 700;
+        color: #0b2047;
+    }
+
+    .zenex-left-panel .feature-text p {
+        margin-top: 2px;
+        font-size: clamp(11px, 1.6vh, 13px);
+        font-weight: 500;
+        color: #1a3562;
+    }
+
+    /* Footer line */
+    .zenex-left-panel .zenex-left-footer span {
+        font-size: clamp(13px, 1.9vh, 16px);
+        color: #0a2a66;
+    }
+}
+/* =========================================================
+   RIGHT SIDE: MODERATE SIZE INCREASE (desktop)
+========================================================= */
+@media (min-width: 851px) {
+
+    .zenex-login-container {
+        grid-template-columns: 60% 40%;
+    }
+
+    .zenex-right-panel {
+        padding: clamp(36px, 5vh, 48px) clamp(18px, 2.2vw, 32px);
+    }
+
+    .right-top-text {
+        font-size: clamp(11px, 1.4vh, 13px);
+    }
+
+    /* Card */
+    .zenex-right-panel .login-card {
+        max-width: 440px;
+        padding: clamp(18px, 2.8vh, 26px) clamp(20px, 2.2vw, 28px);
+        border-radius: 22px;
+    }
+
+    /* Logo */
+    .zenex-right-panel .login-company-logo {
+        margin-bottom: clamp(8px, 1.4vh, 12px);
+    }
+
+    .zenex-right-panel .login-company-logo img {
+        height: clamp(96px, 16vh, 136px);
+    }
+
+    /* Heading */
+    .zenex-right-panel .login-heading {
+        font-size: clamp(22px, 3.4vh, 30px);
+    }
+
+    .zenex-right-panel .login-subheading {
+        margin: 3px 0 clamp(10px, 1.8vh, 16px);
+        font-size: clamp(13px, 1.8vh, 15px);
+    }
+
+    /* Tabs */
+    .zenex-right-panel .login-tabs {
+        margin-bottom: clamp(10px, 1.6vh, 14px);
+    }
+
+    .zenex-right-panel .login-tab {
+        padding: clamp(7px, 1.2vh, 10px) 6px clamp(9px, 1.4vh, 12px);
+        font-size: clamp(14px, 2vh, 16px);
+    }
+
+    /* Form */
+    .zenex-right-panel .login-form {
+        gap: clamp(8px, 1.4vh, 12px);
+    }
+
+    .zenex-right-panel .login-input-group {
+        height: clamp(40px, 5.8vh, 48px);
+        border-radius: 12px;
+    }
+
+    .zenex-right-panel .input-icon {
+        width: 40px;
+    }
+
+    .zenex-right-panel .input-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .zenex-right-panel .login-input-group input {
+        font-size: clamp(13px, 1.8vh, 15px);
+    }
+
+    .zenex-right-panel .password-toggle {
+        width: 38px;
+    }
+
+    .zenex-right-panel .password-toggle svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Remember / forgot */
+    .zenex-right-panel .remember-option,
+    .zenex-right-panel .forgot-password {
+        font-size: clamp(12.5px, 1.7vh, 14px);
+    }
+
+    .zenex-right-panel .remember-option input {
+        width: 15px;
+        height: 15px;
+    }
+
+    /* Notices */
+    .zenex-right-panel .login-error,
+    .zenex-right-panel .login-success {
+        font-size: clamp(12px, 1.6vh, 13px);
+    }
+
+    /* Submit button */
+    .zenex-right-panel .login-submit-button {
+        height: clamp(40px, 5.8vh, 48px);
+        border-radius: 12px;
+        font-size: clamp(14px, 2vh, 16px);
+    }
+
+    /* Divider */
+    .zenex-right-panel .login-divider {
+        margin: clamp(8px, 1.4vh, 12px) 0;
+    }
+
+    .zenex-right-panel .login-divider p {
+        font-size: clamp(12px, 1.6vh, 13px);
+    }
+
+    /* Google / Microsoft */
+    .zenex-right-panel .social-login {
+        gap: 10px;
+    }
+
+    .zenex-right-panel .social-button {
+        height: clamp(36px, 5vh, 42px);
+        gap: 8px;
+        border-radius: 12px;
+        font-size: clamp(11.5px, 1.6vh, 13px);
+    }
+
+    .zenex-right-panel .social-button svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .zenex-right-panel .microsoft-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Register footer */
+    .zenex-right-panel .login-register-footer {
+        margin-top: clamp(8px, 1.5vh, 14px);
+        font-size: clamp(12.5px, 1.7vh, 14px);
+    }
+
+    .zenex-right-panel .login-register-footer button {
+        font-size: clamp(12.5px, 1.7vh, 14px);
+    }
 }
