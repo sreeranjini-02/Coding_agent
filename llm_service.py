@@ -1,4 +1,3 @@
-
 import os
 import time
 import logging
@@ -29,6 +28,9 @@ DEFAULT_MODEL = os.getenv(
 
 MAX_OUTPUT_TOKENS = 2048
 TEMPERATURE = 0.2
+
+# How many times to retry the same model when it is overloaded
+OVERLOAD_ATTEMPTS = 3
 
 
 # --------------------------------------------------
@@ -64,7 +66,19 @@ def get_models():
 
 
 # --------------------------------------------------
-# FAST GEMINI RESPONSE
+# OVERLOAD DETECTION
+# --------------------------------------------------
+
+def _is_overloaded(error):
+    """True when Gemini reports the model is busy (503 / UNAVAILABLE)."""
+
+    message = str(error)
+
+    return "503" in message or "UNAVAILABLE" in message
+
+
+# --------------------------------------------------
+# FAST GEMINI RESPONSE (NON-STREAMING)
 # --------------------------------------------------
 
 def generate_response(
@@ -161,7 +175,7 @@ def generate_response(
 
 
 # --------------------------------------------------
-# STREAMING GEMINI RESPONSE
+# STREAMING GEMINI RESPONSE (NO FALLBACK)
 # --------------------------------------------------
 
 def generate_response_stream(
@@ -202,3 +216,132 @@ def generate_response_stream(
         )
 
         yield "\n\nError: Unable to generate response."
+
+
+# --------------------------------------------------
+# START A STREAM WITH RETRY ON OVERLOAD
+# --------------------------------------------------
+
+def _start_stream_with_retry(model, prompt, attempts=OVERLOAD_ATTEMPTS):
+    """
+    Opens a stream and reads its first text chunk.
+    Retries the same model when it is overloaded (503 / UNAVAILABLE),
+    waiting 1 second, then 2 seconds, between attempts.
+    Other errors are raised immediately so the caller can try another model.
+
+    Returns (iterator, first_text).
+    """
+
+    last_error = None
+
+    for attempt in range(attempts):
+
+        try:
+
+            stream = client.models.generate_content_stream(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=TEMPERATURE,
+                    max_output_tokens=MAX_OUTPUT_TOKENS
+                )
+            )
+
+            iterator = iter(stream)
+
+            for chunk in iterator:
+                if chunk.text:
+                    return iterator, chunk.text
+
+            raise RuntimeError("Model returned no text.")
+
+        except Exception as error:
+
+            last_error = error
+
+            if not _is_overloaded(error):
+                raise
+
+            logger.warning(
+                "Model %s overloaded (attempt %s of %s)",
+                model,
+                attempt + 1,
+                attempts
+            )
+
+            if attempt < attempts - 1:
+                time.sleep(2 ** attempt)
+
+    raise last_error
+
+
+# --------------------------------------------------
+# STREAMING WITH FALLBACK
+# --------------------------------------------------
+
+def open_stream_with_fallback(
+    prompt,
+    selected_model=None,
+    auto_fallback=False
+):
+    """
+    Tries models in order until one returns text.
+    Overloaded models are retried first. Nothing is sent to the
+    browser until a model has produced its first chunk, so the
+    reply can report the model that actually answered.
+    """
+
+    selected_model = selected_model or DEFAULT_MODEL
+
+    models_to_try = [selected_model]
+
+    if auto_fallback:
+        for item in AVAILABLE_MODELS:
+            if item["id"] not in models_to_try:
+                models_to_try.append(item["id"])
+
+    errors = []
+
+    for index, model in enumerate(models_to_try):
+
+        try:
+
+            iterator, first_text = _start_stream_with_retry(model, prompt)
+
+            def rest_of_stream(first=first_text, remaining=iterator):
+
+                yield first
+
+                for chunk in remaining:
+                    if chunk.text:
+                        yield chunk.text
+
+            logger.info(
+                "Streaming started | Model=%s | Fallback=%s",
+                model,
+                index > 0
+            )
+
+            return {
+                "stream": rest_of_stream(),
+                "active_model": model,
+                "fallback_used": index > 0,
+                "errors": errors
+            }
+
+        except Exception as error:
+
+            logger.warning(
+                "Gemini model %s failed before streaming: %s",
+                model,
+                error
+            )
+
+            errors.append(str(error))
+
+            if not auto_fallback:
+                break
+
+    raise RuntimeError(
+        "Unable to start a response from any model."
+    )

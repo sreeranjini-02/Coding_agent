@@ -33,7 +33,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 
 # Authentication
 from backend.auth_routes import (
@@ -49,9 +48,13 @@ from backend.file_routes import (
 
 # Database
 from backend.file_routes import get_db
+from backend.database import SessionLocal
 
 # Chat history
 from backend.chat_routes import router as chat_router
+
+# Code tools (syntax check)
+from backend.code_routes import router as code_router
 
 # Coding agent
 from coding_agent import prepare_agent_prompt
@@ -59,8 +62,8 @@ from coding_agent import prepare_agent_prompt
 # File extraction
 from rag_engine import extract_text, SUPPORTED_EXTENSIONS
 
-# Gemini streaming
-from llm_service import generate_response_stream
+# Gemini streaming with fallback and overload retry
+from llm_service import open_stream_with_fallback
 
 
 # =====================================================
@@ -93,6 +96,19 @@ if not JWT_SECRET_KEY:
     raise RuntimeError(
         "JWT_SECRET_KEY is missing from root .env"
     )
+
+
+# =====================================================
+# ALLOWED MODELS
+# =====================================================
+
+ALLOWED_MODELS = {
+    "gemini-3.5-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+}
 
 
 # =====================================================
@@ -147,6 +163,12 @@ app.add_middleware(
         "Authorization",
         "Content-Type",
         "Accept"
+    ],
+
+    # Lets the browser read these custom response headers
+    expose_headers=[
+        "X-Active-Model",
+        "X-Fallback-Used"
     ]
 )
 
@@ -160,6 +182,8 @@ app.include_router(auth_router)
 app.include_router(file_router)
 
 app.include_router(chat_router)
+
+app.include_router(code_router)
 
 
 # =====================================================
@@ -203,10 +227,6 @@ def get_conversation_history(
     authenticated user and selected conversation.
     """
 
-    # ---------------------------------------------
-    # VERIFY CONVERSATION OWNERSHIP
-    # ---------------------------------------------
-
     conversation = db.execute(
         text("""
             SELECT id
@@ -226,10 +246,6 @@ def get_conversation_history(
             status_code=404,
             detail="Conversation not found."
         )
-
-    # ---------------------------------------------
-    # FETCH PREVIOUS MESSAGES
-    # ---------------------------------------------
 
     result = db.execute(
         text("""
@@ -260,6 +276,80 @@ def get_conversation_history(
     )
 
     return history
+
+
+# =====================================================
+# SAVE ASSISTANT REPLY (OWN DATABASE SESSION)
+# =====================================================
+
+def save_assistant_reply(
+    conversation_id,
+    user_id,
+    content,
+    model_name,
+    response_time
+):
+    """
+    Saves the assistant reply using its own database session.
+    The request's session may already be closed once streaming
+    has started, so this does not depend on it.
+    """
+
+    save_db = SessionLocal()
+
+    try:
+
+        save_db.execute(
+            text("""
+                INSERT INTO messages (
+                    conversation_id,
+                    user_id,
+                    role,
+                    content,
+                    model_name,
+                    response_time
+                )
+                VALUES (
+                    :conversation_id,
+                    :user_id,
+                    'assistant',
+                    :content,
+                    :model_name,
+                    :response_time
+                )
+            """),
+            {
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "content": content,
+                "model_name": model_name,
+                "response_time": response_time,
+            }
+        )
+
+        save_db.execute(
+            text("""
+                UPDATE conversations
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = :conversation_id
+                  AND user_id = :user_id
+            """),
+            {
+                "conversation_id": conversation_id,
+                "user_id": user_id
+            }
+        )
+
+        save_db.commit()
+
+    except Exception:
+
+        save_db.rollback()
+        raise
+
+    finally:
+
+        save_db.close()
 
 
 # =====================================================
@@ -314,6 +404,17 @@ async def coding_agent_api(
         )
 
         # =================================================
+        # VALIDATE MODEL
+        # =================================================
+
+        if model not in ALLOWED_MODELS:
+
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported model selected."
+            )
+
+        # =================================================
         # VALIDATE QUESTION
         # =================================================
 
@@ -336,15 +437,21 @@ async def coding_agent_api(
             db=db
         )
 
+        # The frontend saves the user's message before calling
+        # this route, so it is already the last history entry.
+        # Remove it here, because the prompt already includes it.
+        if (
+            conversation_history
+            and conversation_history[-1]["role"] == "user"
+            and conversation_history[-1]["content"].strip() == prompt
+        ):
+            conversation_history = conversation_history[:-1]
+
         # =================================================
         # UPLOADED FILE CONTEXT
         # =================================================
 
         uploaded_context = ""
-
-        # =================================================
-        # UPLOADED FILE PROCESSING AND STORAGE
-        # =================================================
 
         if file:
 
@@ -354,20 +461,12 @@ async def coding_agent_api(
 
             extension = Path(filename).suffix.lower()
 
-            # ---------------------------------------------
-            # VALIDATE FILE TYPE
-            # ---------------------------------------------
-
             if extension not in SUPPORTED_EXTENSIONS:
 
                 raise HTTPException(
                     status_code=400,
                     detail=f"Unsupported file format: {extension}"
                 )
-
-            # ---------------------------------------------
-            # READ FILE
-            # ---------------------------------------------
 
             file_content = await file.read()
 
@@ -377,10 +476,6 @@ async def coding_agent_api(
                     status_code=400,
                     detail="Uploaded file is empty."
                 )
-
-            # ---------------------------------------------
-            # SAVE FILE
-            # ---------------------------------------------
 
             file_data = store_uploaded_file(
                 user_id=user_id,
@@ -399,10 +494,6 @@ async def coding_agent_api(
                 file_data["stored_filename"]
             )
 
-            # ---------------------------------------------
-            # TEMPORARY FILE FOR EXTRACTION
-            # ---------------------------------------------
-
             stored_path = Path(
                 file_data["file_path"]
             )
@@ -414,10 +505,6 @@ async def coding_agent_api(
                     detail="Uploaded file could not be located."
                 )
 
-            # ---------------------------------------------
-            # EXTRACT FILE CONTENT
-            # ---------------------------------------------
-
             uploaded_context = extract_text(
                 stored_path
             )
@@ -428,10 +515,6 @@ async def coding_agent_api(
                     status_code=400,
                     detail="No readable content found in uploaded file."
                 )
-
-            # ---------------------------------------------
-            # CONTEXT LIMIT
-            # ---------------------------------------------
 
             uploaded_context = uploaded_context[:30000]
 
@@ -460,6 +543,28 @@ async def coding_agent_api(
         )
 
         # =================================================
+        # OPEN STREAM (retries overloaded models, then falls back)
+        # =================================================
+
+        try:
+
+            stream_info = open_stream_with_fallback(
+                prompt=final_prompt,
+                selected_model=model,
+                auto_fallback=auto_fallback
+            )
+
+        except RuntimeError:
+
+            raise HTTPException(
+                status_code=503,
+                detail="All models failed to respond. Please try again."
+            )
+
+        active_model = stream_info["active_model"]
+        fallback_used = stream_info["fallback_used"]
+
+        # =================================================
         # STREAM RESPONSE
         # =================================================
 
@@ -469,11 +574,7 @@ async def coding_agent_api(
 
             try:
 
-                for chunk in generate_response_stream(
-                    prompt=final_prompt,
-                    selected_model=model,
-                    context=""
-                ):
+                for chunk in stream_info["stream"]:
 
                     if not chunk:
                         continue
@@ -482,89 +583,52 @@ async def coding_agent_api(
 
                     yield chunk
 
-                # -----------------------------------------
-                # SAVE ASSISTANT RESPONSE AFTER GENERATION
-                # -----------------------------------------
-
-                if full_response.strip():
-
-                    db.execute(
-                        text("""
-                            INSERT INTO messages (
-                                conversation_id,
-                                user_id,
-                                role,
-                                content,
-                                model_name,
-                                response_time
-                            )
-                            VALUES (
-                                :conversation_id,
-                                :user_id,
-                                'assistant',
-                                :content,
-                                :model_name,
-                                :response_time
-                            )
-                        """),
-                        {
-                            "conversation_id": conversation_id,
-                            "user_id": user_id,
-                            "content": full_response,
-                            "model_name": model,
-                            "response_time": round(
-                                time.perf_counter() - start_time,
-                                2
-                            )
-                        }
-                    )
-
-                    db.execute(
-                        text("""
-                            UPDATE conversations
-                            SET updated_at = CURRENT_TIMESTAMP
-                            WHERE id = :conversation_id
-                              AND user_id = :user_id
-                        """),
-                        {
-                            "conversation_id": conversation_id,
-                            "user_id": user_id
-                        }
-                    )
-
-                    db.commit()
-
-                elapsed = round(
-                    time.perf_counter() - start_time,
-                    2
-                )
-
-                logger.info(
-                    "Streaming completed | "
-                    "User=%s | Conversation=%s | "
-                    "Model=%s | Time=%ss",
-                    user_id,
-                    conversation_id,
-                    model,
-                    elapsed
-                )
-
             except Exception:
 
-                db.rollback()
-
                 logger.exception(
-                    "Streaming generation or saving failed"
+                    "Streaming failed"
                 )
 
-                yield "\n\nError: Unable to complete or save the response."
+                yield "\n\nError: The response stopped early."
+                return
+
+            # The reply is already streamed. Saving happens separately,
+            # so a save problem is logged instead of replacing the reply.
+            if full_response.strip():
+
+                try:
+
+                    save_assistant_reply(
+                        conversation_id=conversation_id,
+                        user_id=user_id,
+                        content=full_response,
+                        model_name=active_model,
+                        response_time=round(
+                            time.perf_counter() - start_time,
+                            2
+                        ),
+                    )
+
+                    logger.info(
+                        "Reply saved | Conversation=%s | Model=%s",
+                        conversation_id,
+                        active_model,
+                    )
+
+                except Exception:
+
+                    logger.exception(
+                        "Saving the assistant reply failed"
+                    )
 
         return StreamingResponse(
             response_generator(),
             media_type="text/plain",
             headers={
                 "Cache-Control": "no-cache",
-                "X-Accel-Buffering": "no"
+                "X-Accel-Buffering": "no",
+                "X-Active-Model": active_model,
+                "X-Fallback-Used": "true" if fallback_used else "false"
             }
         )
 

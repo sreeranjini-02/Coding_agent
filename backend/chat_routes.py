@@ -33,11 +33,27 @@ def get_db():
 
 
 # --------------------------------------------------
+# VALID TOOL MODES
+# --------------------------------------------------
+
+VALID_MODES = {
+    "generate",
+    "debug",
+    "explain",
+    "review",
+    "optimize",
+    "tests",
+    "convert",
+}
+
+
+# --------------------------------------------------
 # REQUEST MODELS
 # --------------------------------------------------
 
 class ConversationCreate(BaseModel):
     title: str = Field(default="New Chat", max_length=255)
+    mode: str = Field(default="generate", max_length=20)
 
 
 class MessageCreate(BaseModel):
@@ -76,15 +92,22 @@ def create_conversation(
             detail="Invalid authentication"
         )
 
+    if request.mode not in VALID_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid tool mode"
+        )
+
     try:
         result = db.execute(
             text("""
-                INSERT INTO conversations (user_id, title)
-                VALUES (:user_id, :title)
+                INSERT INTO conversations (user_id, title, mode)
+                VALUES (:user_id, :title, :mode)
             """),
             {
                 "user_id": user_id,
-                "title": request.title
+                "title": request.title,
+                "mode": request.mode
             }
         )
 
@@ -95,7 +118,8 @@ def create_conversation(
         return {
             "success": True,
             "conversation_id": conversation_id,
-            "title": request.title
+            "title": request.title,
+            "mode": request.mode
         }
 
     except SQLAlchemyError:
@@ -130,6 +154,7 @@ def get_conversations(
                 SELECT
                     id,
                     title,
+                    mode,
                     created_at,
                     updated_at
                 FROM conversations

@@ -383,3 +383,33 @@ select:focus {
   }
 
 }
+/* =========================================================
+   DARK MODE
+   Activated by data-theme="dark" on <html>
+========================================================= */
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --bg-soft: #0f1a2e;
+
+  --surface: #111a2b;
+  --surface-hover: #16233a;
+  --surface-raised: #1a2a44;
+
+  --border: #24344f;
+  --border-strong: #2f4a70;
+
+  --text: #e6edf7;
+  --text-soft: #b8c7dc;
+  --muted: #8fa1bb;
+  --subtle: #64748b;
+
+  --accent: #42a5ff;
+  --accent-light: #6cb8ff;
+  --accent-deep: #0878f9;
+
+  --zenex-gradient: linear-gradient(135deg, #0b1220 0%, #0f1a2e 100%);
+  --zenex-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
+}
